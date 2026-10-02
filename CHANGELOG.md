@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
-## v1.0.0 - unreleased
+## v1.0.0 - 2026-10-02
 
 - `LogsActivityPlus` trait for `spatie/laravel-activitylog` 5: `logAll()` (works with `$guarded = ['*']`), dirty-only diffs, secrets excluded, model hooks `activityExcept()`, `activityTranslatableAttributes()` and `activityIgnoreOnlyChanged()`.
 - Per-language diffs of translatable JSON fields (`title.uk`, `title.en`; unchanged languages dropped), with or without `spatie/laravel-translatable`.

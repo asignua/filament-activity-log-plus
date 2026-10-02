@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/packagist/l/asignua/filament-activity-log-plus.svg?style=flat-square)](https://github.com/asignua/filament-activity-log-plus/blob/main/LICENSE.md)
 [![Plumb score](https://plumbphp.dev/badges/asignua/filament-activity-log-plus/composite.svg)](https://plumbphp.dev/asignua/filament-activity-log-plus)
 
+<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/cover.jpg" alt="Filament Activity Log Plus">
+
 An audit trail for [Filament](https://filamentphp.com) 5 that finishes the job [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog)
 5 starts: the engine stores rows, this plugin makes them **true** and **readable** on a real, multilingual panel.
 
@@ -44,7 +46,19 @@ This plugin fixes each of those in the write layer, and ships the History action
 
 ## Screenshots
 
-<!-- TODO: add art/cover.jpg, the log resource (light and dark), the History modal and the operation modal; then reference them here with raw.githubusercontent.com URLs of the release tag. -->
+The History button on a record: a field / old / new table per entry, one row per language (`Title (uk)`, `Title (en)`), and attached / detached tag badges.
+
+![The History modal](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/history-modal.jpg)
+
+![The History modal, dark mode](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/history-modal-dark.jpg)
+
+The read-only Activity log, "Operations only" filter on: who did what to which record, and which fields changed.
+
+![The Activity log resource](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/activity-log.jpg)
+
+One operation, opened from the log: the record save and the tag sync of the same click, together.
+
+![One operation in the log](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/activity-batch.jpg)
 
 ## Requirements
 
