@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/packagist/l/asignua/filament-activity-log-plus.svg?style=flat-square)](https://github.com/asignua/filament-activity-log-plus/blob/main/LICENSE.md)
 [![Plumb score](https://plumbphp.dev/badges/asignua/filament-activity-log-plus/composite.svg)](https://plumbphp.dev/asignua/filament-activity-log-plus)
 
-<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/cover.jpg" alt="Filament Activity Log Plus">
+<img class="filament-hidden" src="https://raw.githubusercontent.com/asignua/filament-activity-log-plus/main/art/cover.jpg" alt="Filament Activity Log Plus">
 
 An audit trail for [Filament](https://filamentphp.com) 5 that finishes the job [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog)
 5 starts: the engine stores rows, this plugin makes them **true** and **readable** on a real, multilingual panel.
@@ -48,17 +48,17 @@ This plugin fixes each of those in the write layer, and ships the History action
 
 The History button on a record: a field / old / new table per entry, one row per language (`Title (uk)`, `Title (en)`), and attached / detached tag badges.
 
-![The History modal](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/history-modal.jpg)
+![The History modal](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/main/art/history-modal.jpg)
 
-![The History modal, dark mode](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/history-modal-dark.jpg)
+![The History modal, dark mode](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/main/art/history-modal-dark.jpg)
 
 The read-only Activity log, "Operations only" filter on: who did what to which record, and which fields changed.
 
-![The Activity log resource](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/activity-log.jpg)
+![The Activity log resource](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/main/art/activity-log.jpg)
 
 One operation, opened from the log: the record save and the tag sync of the same click, together.
 
-![One operation in the log](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.0.0/art/activity-batch.jpg)
+![One operation in the log](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/main/art/activity-batch.jpg)
 
 ## Requirements
 
@@ -101,13 +101,20 @@ Optionally publish the config:
 php artisan vendor:publish --tag=filament-activity-log-plus-config
 ```
 
-Register the plugin in your panel provider:
+Register the plugin in your panel provider and say who may read the log:
 
 ```php
 use Asignua\FilamentActivityLogPlus\ActivityLogPlusPlugin;
 
-$panel->plugin(ActivityLogPlusPlugin::make());
+$panel->plugin(
+    ActivityLogPlusPlugin::make()
+        ->authorizeResource(fn (): bool => auth()->user()?->isAdmin() ?? false),
+);
 ```
+
+**The log resource is closed by default.** Without `authorizeResource()` and without the `activity-log-plus.view` gate
+nobody sees it, because the feed holds every user's actions, IPs and the addresses typed into the login form (see
+[Authorization](#authorization)). The History action on a record stays open by default.
 
 **What the plugin sets in spatie's config.** Recording works without the panel. On boot the plugin sets
 `activitylog.activity_model` and `activitylog.actions.log_activity` to its own classes, **but only while they are still
@@ -115,6 +122,14 @@ spatie's defaults**. If your application (or another package) bound its own, it 
 `Asignua\FilamentActivityLogPlus\Models\Activity` and `Asignua\FilamentActivityLogPlus\Actions\LogActivityAction`
 there to keep the batch, the labels and the IP. It also turns `activitylog.enabled` off when the plugin is disabled and
 adds `password` / `remember_token` to `activitylog.default_except_attributes` as a safety net.
+
+**The IP is stored with every entry**, not only with authentication events: any entry written during a request gets
+`request()->ip()` in the `ip` column. It is personal data; cover it in your privacy notice and keep `retention_days`
+sensible. spatie's `default_except_attributes` filters model diffs only, never `withProperties()` of a hand-written
+entry, so do not pass secrets there.
+
+**spatie's buffer** (`activitylog.buffer.enabled`) is honoured outside a batch only: inside one (a panel request) the
+entries are written straight away, because the root of an operation needs the key of the row it may demote.
 
 ## Styling
 
@@ -139,7 +154,9 @@ class Post extends Model
 
 That is all for a model. It logs created / updated / deleted / restored, with `logAll()` (so a model with
 `$guarded = ['*']`, written only through repositories, is logged too), only the dirty attributes, no empty entries and
-no secrets (`except` config: `id`, `password`, `remember_token`, `created_at`, `updated_at`).
+no secrets (`except` config: `id`, `password`, `remember_token`, `created_at`, `updated_at`). "No empty entries" holds
+after the trait's own filtering too: an update whose diff is empty once phantom columns and unchanged locales are cut
+(a translatable column re-encoded with the same values) writes nothing.
 
 Three optional `protected` hooks:
 
@@ -186,7 +203,8 @@ On `updated` the trait therefore cuts the diff down to `array_keys($model->getCh
 into the `UPDATE` (Eloquent syncs them before the `updated` event fires).
 
 Also bounded: values longer than `max_value_length` (5000) are cut with `…` and listed in
-`attribute_changes.truncated`, otherwise every edit of a rich-text field stores two HTML blobs; and an update that
+`attribute_changes.truncated` (a non-translatable JSON array is measured, and cut, as its JSON text), otherwise every
+edit of a rich-text field stores two HTML blobs; and an update that
 changed **only** columns from `ignore_only_changed` / `activityIgnoreOnlyChanged()` writes nothing (typical: a
 materialised `path` rewritten on every ancestor save, which would log one row per descendant).
 
@@ -270,7 +288,8 @@ MediaAdapters::register(
 ## Auth events
 
 `log_auth` (on by default) records `login`, `logout`, `login_failed` (with the attempted address, never the password)
-and `lockout` in the `auth` log, with the IP. With `spatie/laravel-permission` it also records `role_attached` /
+and `lockout` in the `auth` log, with the IP. A failed attempt against an existing account has that account as its
+**subject** and no causer: whoever typed the password is unknown, and the victim must not appear as the actor. With `spatie/laravel-permission` it also records `role_attached` /
 `role_detached` by role **name**; that package sends no events unless `permission.events_enabled` is on, so the plugin
 switches it on when `log_auth` is. A role lives in a pivot, so without this "promoted to administrator" would never be
 logged. The volume is bounded by [pruning](#pruning).
@@ -350,12 +369,13 @@ ActivityLogPlusPlugin::make()
     ->resource(false); // History action only
 ```
 
-The views use Filament components and a few Tailwind utilities. With a custom panel theme add the package to its
-sources: `@source '../../../../vendor/asignua/filament-activity-log-plus/resources/views';`.
+A bulk action over many records is one operation with one root, so its row reads `+49 more` after the summary; the
+modal shows the first 200 entries of an operation and says so when there are more. The filter options (event, type,
+user) are cached for 60 seconds. The resource is not globally searchable.
 
 ## Authorization
 
-The feed shows other people's actions and the addresses of failed logins, so restrict it:
+The feed shows other people's actions, IPs and the addresses of failed logins, so it is **closed by default**:
 
 ```php
 ActivityLogPlusPlugin::make()
@@ -363,9 +383,15 @@ ActivityLogPlusPlugin::make()
     ->authorizeHistory(fn (): bool => true);                        // the History action
 ```
 
-Without a closure the plugin consults the gates `activity-log-plus.view` and `activity-log-plus.history` when they are
-defined, and otherwise allows everyone who can enter the panel. The two are separate on purpose: whoever may edit a
-record should see who changed it before, even without access to the global log.
+Without a closure the plugin consults the gates `activity-log-plus.view` and `activity-log-plus.history`:
+
+```php
+Gate::define('activity-log-plus.view', fn (User $user): bool => $user->isAdmin());
+```
+
+With neither a closure nor the gate, the **log resource is denied to everyone** and the **History action is allowed to
+everyone** who can open the record. The two are separate on purpose: whoever may edit a record should see who changed it
+before, even without access to the global log.
 
 ## Pruning
 
