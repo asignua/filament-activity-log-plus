@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Created',
+        'updated' => 'Updated',
+        'deleted' => 'Deleted',
+        'restored' => 'Restored',
+        'pivot_synced' => 'Relation changed',
+        'media_added' => 'File uploaded',
+        'media_removed' => 'File deleted',
+        'login' => 'Signed in',
+        'logout' => 'Signed out',
+        'login_failed' => 'Failed sign-in',
+        'lockout' => 'Sign-in blocked',
+        'role_attached' => 'Role granted',
+        'role_detached' => 'Role revoked',
+    ],
+    'ui' => [
+        'history' => 'History',
+        'close' => 'Close',
+        'activity_log' => 'Activity log',
+        'activity_record' => 'Activity entry',
+        'date' => 'Date',
+        'user' => 'User',
+        'system_record' => 'System',
+        'action' => 'Action',
+        'type' => 'Type',
+        'record' => 'Record',
+        'changes' => 'Changes',
+        'operations_only' => 'Operations only',
+        'from' => 'From',
+        'until' => 'Until',
+        'details' => 'Details',
+        'field' => 'Field',
+        'old_value' => 'Old value',
+        'new_value' => 'New value',
+        'truncated' => 'Truncated',
+        'attached' => 'Attached',
+        'detached' => 'Detached',
+        'yes' => 'Yes',
+        'no' => 'No',
+    ],
+];

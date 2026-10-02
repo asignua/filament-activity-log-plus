@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Creado',
+        'updated' => 'Actualizado',
+        'deleted' => 'Eliminado',
+        'restored' => 'Restaurado',
+        'pivot_synced' => 'Relación modificada',
+        'media_added' => 'Archivo subido',
+        'media_removed' => 'Archivo eliminado',
+        'login' => 'Sesión iniciada',
+        'logout' => 'Sesión cerrada',
+        'login_failed' => 'Inicio de sesión fallido',
+        'lockout' => 'Inicio de sesión bloqueado',
+        'role_attached' => 'Rol asignado',
+        'role_detached' => 'Rol revocado',
+    ],
+    'ui' => [
+        'history' => 'Historial',
+        'close' => 'Cerrar',
+        'activity_log' => 'Registro de actividad',
+        'activity_record' => 'Entrada del registro',
+        'date' => 'Fecha',
+        'user' => 'Usuario',
+        'system_record' => 'Sistema',
+        'action' => 'Acción',
+        'type' => 'Tipo',
+        'record' => 'Registro',
+        'changes' => 'Cambios',
+        'operations_only' => 'Solo operaciones',
+        'from' => 'Desde',
+        'until' => 'Hasta',
+        'details' => 'Detalles',
+        'field' => 'Campo',
+        'old_value' => 'Valor anterior',
+        'new_value' => 'Valor nuevo',
+        'truncated' => 'Truncado',
+        'attached' => 'Añadido',
+        'detached' => 'Quitado',
+        'yes' => 'Sí',
+        'no' => 'No',
+    ],
+];

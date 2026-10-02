@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Створено',
+        'updated' => 'Оновлено',
+        'deleted' => 'Видалено',
+        'restored' => 'Відновлено',
+        'pivot_synced' => 'Змінено зв’язок',
+        'media_added' => 'Завантажено файл',
+        'media_removed' => 'Видалено файл',
+        'login' => 'Вхід',
+        'logout' => 'Вихід',
+        'login_failed' => 'Невдалий вхід',
+        'lockout' => 'Вхід заблоковано',
+        'role_attached' => 'Призначено роль',
+        'role_detached' => 'Знято роль',
+    ],
+    'ui' => [
+        'history' => 'Історія',
+        'close' => 'Закрити',
+        'activity_log' => 'Журнал дій',
+        'activity_record' => 'Запис журналу',
+        'date' => 'Дата',
+        'user' => 'Користувач',
+        'system_record' => 'Системний запис',
+        'action' => 'Дія',
+        'type' => 'Тип',
+        'record' => 'Запис',
+        'changes' => 'Зміни',
+        'operations_only' => 'Лише операції',
+        'from' => 'Від',
+        'until' => 'До',
+        'details' => 'Деталі',
+        'field' => 'Поле',
+        'old_value' => 'Було',
+        'new_value' => 'Стало',
+        'truncated' => 'Обрізано',
+        'attached' => 'Додано',
+        'detached' => 'Прибрано',
+        'yes' => 'Так',
+        'no' => 'Ні',
+    ],
+];

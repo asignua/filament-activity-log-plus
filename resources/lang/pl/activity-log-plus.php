@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Utworzono',
+        'updated' => 'Zaktualizowano',
+        'deleted' => 'Usunięto',
+        'restored' => 'Przywrócono',
+        'pivot_synced' => 'Zmieniono powiązanie',
+        'media_added' => 'Przesłano plik',
+        'media_removed' => 'Usunięto plik',
+        'login' => 'Zalogowano',
+        'logout' => 'Wylogowano',
+        'login_failed' => 'Nieudane logowanie',
+        'lockout' => 'Logowanie zablokowane',
+        'role_attached' => 'Przyznano rolę',
+        'role_detached' => 'Odebrano rolę',
+    ],
+    'ui' => [
+        'history' => 'Historia',
+        'close' => 'Zamknij',
+        'activity_log' => 'Dziennik aktywności',
+        'activity_record' => 'Wpis dziennika',
+        'date' => 'Data',
+        'user' => 'Użytkownik',
+        'system_record' => 'System',
+        'action' => 'Akcja',
+        'type' => 'Typ',
+        'record' => 'Rekord',
+        'changes' => 'Zmiany',
+        'operations_only' => 'Tylko operacje',
+        'from' => 'Od',
+        'until' => 'Do',
+        'details' => 'Szczegóły',
+        'field' => 'Pole',
+        'old_value' => 'Stara wartość',
+        'new_value' => 'Nowa wartość',
+        'truncated' => 'Skrócono',
+        'attached' => 'Dodano',
+        'detached' => 'Usunięto',
+        'yes' => 'Tak',
+        'no' => 'Nie',
+    ],
+];

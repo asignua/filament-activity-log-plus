@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Aangemaakt',
+        'updated' => 'Bijgewerkt',
+        'deleted' => 'Verwijderd',
+        'restored' => 'Hersteld',
+        'pivot_synced' => 'Relatie gewijzigd',
+        'media_added' => 'Bestand geüpload',
+        'media_removed' => 'Bestand verwijderd',
+        'login' => 'Ingelogd',
+        'logout' => 'Uitgelogd',
+        'login_failed' => 'Mislukte aanmelding',
+        'lockout' => 'Aanmelding geblokkeerd',
+        'role_attached' => 'Rol toegekend',
+        'role_detached' => 'Rol ingetrokken',
+    ],
+    'ui' => [
+        'history' => 'Geschiedenis',
+        'close' => 'Sluiten',
+        'activity_log' => 'Activiteitenlogboek',
+        'activity_record' => 'Logboekregel',
+        'date' => 'Datum',
+        'user' => 'Gebruiker',
+        'system_record' => 'Systeem',
+        'action' => 'Actie',
+        'type' => 'Type',
+        'record' => 'Record',
+        'changes' => 'Wijzigingen',
+        'operations_only' => 'Alleen bewerkingen',
+        'from' => 'Van',
+        'until' => 'Tot',
+        'details' => 'Details',
+        'field' => 'Veld',
+        'old_value' => 'Oude waarde',
+        'new_value' => 'Nieuwe waarde',
+        'truncated' => 'Ingekort',
+        'attached' => 'Toegevoegd',
+        'detached' => 'Verwijderd',
+        'yes' => 'Ja',
+        'no' => 'Nee',
+    ],
+];

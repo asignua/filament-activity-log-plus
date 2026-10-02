@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'events' => [
+        'created' => 'Oluşturuldu',
+        'updated' => 'Güncellendi',
+        'deleted' => 'Silindi',
+        'restored' => 'Geri yüklendi',
+        'pivot_synced' => 'İlişki değiştirildi',
+        'media_added' => 'Dosya yüklendi',
+        'media_removed' => 'Dosya silindi',
+        'login' => 'Oturum açıldı',
+        'logout' => 'Oturum kapatıldı',
+        'login_failed' => 'Başarısız oturum açma',
+        'lockout' => 'Oturum açma engellendi',
+        'role_attached' => 'Rol atandı',
+        'role_detached' => 'Rol geri alındı',
+    ],
+    'ui' => [
+        'history' => 'Geçmiş',
+        'close' => 'Kapat',
+        'activity_log' => 'Etkinlik günlüğü',
+        'activity_record' => 'Günlük kaydı',
+        'date' => 'Tarih',
+        'user' => 'Kullanıcı',
+        'system_record' => 'Sistem',
+        'action' => 'İşlem',
+        'type' => 'Tür',
+        'record' => 'Kayıt',
+        'changes' => 'Değişiklikler',
+        'operations_only' => 'Yalnızca işlemler',
+        'from' => 'Başlangıç',
+        'until' => 'Bitiş',
+        'details' => 'Ayrıntılar',
+        'field' => 'Alan',
+        'old_value' => 'Eski değer',
+        'new_value' => 'Yeni değer',
+        'truncated' => 'Kısaltıldı',
+        'attached' => 'Eklendi',
+        'detached' => 'Kaldırıldı',
+        'yes' => 'Evet',
+        'no' => 'Hayır',
+    ],
+];
