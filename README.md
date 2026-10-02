@@ -116,6 +116,16 @@ spatie's defaults**. If your application (or another package) bound its own, it 
 there to keep the batch, the labels and the IP. It also turns `activitylog.enabled` off when the plugin is disabled and
 adds `password` / `remember_token` to `activitylog.default_except_attributes` as a safety net.
 
+## Styling
+
+The views use a few Tailwind utilities that Filament's own stylesheet does not contain. The plugin ships them as a small compiled file (`resources/dist/filament-activity-log-plus.css`, no preflight) and links it after the panel's styles, so **no custom theme or `@source` line is needed**. Publish the file after installing or upgrading:
+
+```bash
+php artisan filament:assets
+```
+
+The stylesheet is linked by the plugin registered in the panel (the History action rendered in a panel without the plugin stays unstyled). Editing the views? Rebuild with `npm install && npm run build`.
+
 ## Quick start
 
 ```php

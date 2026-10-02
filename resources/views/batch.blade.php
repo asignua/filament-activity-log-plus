@@ -40,7 +40,8 @@
                 </span>
 
                 <span class="ms-auto text-xs text-gray-500 dark:text-gray-400">
-                    {{ $entry->created_at?->format('d.m.Y H:i:s') }}
+                    {{ $entry->causer_label ?? __($lang . 'system_record') }}
+                    · {{ $entry->created_at?->format('d.m.Y H:i:s') }}
                 </span>
             </div>
 

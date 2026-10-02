@@ -11,6 +11,8 @@ use Asignua\FilamentActivityLogPlus\Listeners\AuthActivitySubscriber;
 use Asignua\FilamentActivityLogPlus\Listeners\LogPivotSync;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
+use Filament\Support\Assets\Css;
+use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Console\Scheduling\Schedule as LaravelSchedule;
 use Illuminate\Support\Facades\Event;
 
@@ -23,6 +25,10 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class ActivityLogPlusServiceProvider extends PackageServiceProvider
 {
+    public const string PACKAGE = 'asignua/filament-activity-log-plus';
+
+    public const string STYLESHEET = 'filament-activity-log-plus';
+
     public static string $name = 'filament-activity-log-plus';
 
     public function configurePackage(Package $package): void
@@ -46,6 +52,12 @@ class ActivityLogPlusServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        // Published by `filament:assets`, but linked by the plugin itself after the panel's
+        // theme (see the plugin's register()): a custom theme must not beat our `dark:` variants.
+        FilamentAsset::register([
+            Css::make(self::STYLESHEET, __DIR__.'/../resources/dist/filament-activity-log-plus.css')->loadedOnRequest(),
+        ], self::PACKAGE);
+
         $this->configureActivityLog();
 
         Event::listen(PivotSynced::class, [LogPivotSync::class, 'handle']);

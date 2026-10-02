@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentActivityLogPlus\Actions;
 
 use Asignua\FilamentActivityLogPlus\ActivityBatch;
+use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
 use Asignua\FilamentActivityLogPlus\SubjectLabels;
 use Asignua\FilamentActivityLogPlus\Support\ActivityDiff;
 use Illuminate\Database\Eloquent\Model;
@@ -34,6 +35,8 @@ class LogActivityAction extends SpatieLogActivityAction
         $this->truncateChanges($activity);
 
         parent::save($activity);
+
+        $this->settleRoot($activity);
     }
 
     protected function stampBatch(Model $activity): void
@@ -41,7 +44,34 @@ class LogActivityAction extends SpatieLogActivityAction
         $batch = app(ActivityBatch::class);
 
         $activity->setAttribute('batch_uuid', $batch->uuid());
-        $activity->setAttribute('batch_root', $batch->claimRoot());
+
+        $subjectType = $activity->getAttribute('subject_type');
+        $subjectId = $activity->getAttribute('subject_id');
+        $subject = is_string($subjectType) && $subjectId !== null ? $subjectType.':'.$subjectId : null;
+
+        $activity->setAttribute('batch_root', $batch->claimRoot(
+            $subject,
+            in_array($activity->getAttribute('event'), ActivityBatch::LIFECYCLE_EVENTS, true),
+        ));
+    }
+
+    /**
+     * The entry is saved: if it took the root over from an earlier secondary entry of the
+     * same subject, that entry stops being the root (one UPDATE).
+     */
+    protected function settleRoot(Model $activity): void
+    {
+        $key = $activity->getKey();
+
+        if (!is_int($key) && !is_string($key)) {
+            return;
+        }
+
+        $displaced = app(ActivityBatch::class)->confirmRoot($key);
+
+        if ($displaced !== null) {
+            app(ActivityRepository::class)->demoteRoot($displaced);
+        }
     }
 
     protected function stampLabels(Model $activity): void

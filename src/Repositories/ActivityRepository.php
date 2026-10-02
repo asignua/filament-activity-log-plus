@@ -38,6 +38,14 @@ class ActivityRepository
     }
 
     /**
+     * An entry that lost the root of its operation to the record's own lifecycle entry.
+     */
+    public function demoteRoot(int|string $id): void
+    {
+        $this->query()->whereKey($id)->update(['batch_root' => false]);
+    }
+
+    /**
      * One entry as a collection of one: the "outside a batch" branch of
      * {@see \Asignua\FilamentActivityLogPlus\Support\ActivityPresenter::batch()}.
      *

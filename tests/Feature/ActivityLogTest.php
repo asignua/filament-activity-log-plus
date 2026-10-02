@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use function Livewire\trigger;
 
 use Spatie\Activitylog\Support\ActivityLogStatus;
+use Workbench\App\Models\Article;
 use Workbench\App\Models\Tag;
 use Workbench\App\Models\TranslatableArticle;
 
@@ -262,6 +263,84 @@ class ActivityLogTest extends TestCase
         $this->assertCount(1, $activities->pluck('batch_uuid')->unique()->filter());
         $this->assertSame(1, $activities->where('batch_root', true)->count());
         $this->assertSame('updated', $activities->firstWhere('batch_root', true)?->event);
+    }
+
+    public function test_the_record_update_takes_the_root_over_from_an_earlier_pivot_entry(): void
+    {
+        $article = $this->article();
+        $tag = Tag::create(['name' => 'News']);
+        $this->fresh();
+
+        $this->batch()->run(function () use ($article, $tag): void {
+            $article->syncAndLog('tags', [$tag->id]);
+            $article->slug = 'after-pivot';
+            $article->save();
+        });
+
+        $roots = Activity::query()->where('batch_root', true)->get();
+
+        $this->assertCount(1, $roots);
+        $this->assertSame('updated', $roots->first()?->event);
+        $this->assertFalse((bool) Activity::query()->where('event', '!=', 'updated')->firstOrFail()->batch_root);
+    }
+
+    public function test_the_pivot_after_the_update_does_not_change_the_root(): void
+    {
+        $article = $this->article();
+        $tag = Tag::create(['name' => 'News']);
+        $this->fresh();
+
+        $this->batch()->run(function () use ($article, $tag): void {
+            $article->slug = 'before-pivot';
+            $article->save();
+            $article->syncAndLog('tags', [$tag->id]);
+        });
+
+        $roots = Activity::query()->where('batch_root', true)->get();
+
+        $this->assertCount(1, $roots);
+        $this->assertSame('updated', $roots->first()?->event);
+    }
+
+    public function test_the_first_entry_stays_the_root_between_different_subjects(): void
+    {
+        $article = $this->article();
+        $other = $this->article('other');
+        $tag = Tag::create(['name' => 'News']);
+        $this->fresh();
+
+        $this->batch()->run(function () use ($article, $other, $tag): void {
+            $article->syncAndLog('tags', [$tag->id]);
+            $other->slug = 'other-changed';
+            $other->save();
+        });
+
+        $roots = Activity::query()->where('batch_root', true)->get();
+
+        $this->assertCount(1, $roots);
+        $this->assertSame($article->getKey(), (int) $roots->first()?->subject_id);
+        $this->assertNotSame('updated', $roots->first()?->event);
+    }
+
+    public function test_created_drops_empty_values_but_keeps_zero_and_false(): void
+    {
+        $article = new Article;
+        $article->title = ['uk' => 'Заголовок'];
+        $article->slug = 'filled';
+        $article->body = '';
+        $article->order = 0;
+        $article->noindex = false;
+        $article->save();
+
+        $attributes = Activity::query()->where('event', 'created')->firstOrFail()->attribute_changes?->toArray()['attributes'] ?? [];
+
+        $this->assertArrayNotHasKey('body', $attributes);
+        $this->assertArrayNotHasKey('secret', $attributes);
+        $this->assertArrayNotHasKey('title.en', $attributes);
+        $this->assertSame('filled', $attributes['slug']);
+        $this->assertSame(0, $attributes['order']);
+        $this->assertArrayHasKey('noindex', $attributes);
+        $this->assertEmpty($attributes['noindex']);
     }
 
     public function test_the_first_entry_is_the_root_even_when_it_is_not_the_model_save(): void

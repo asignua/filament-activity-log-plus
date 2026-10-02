@@ -124,6 +124,27 @@ final class ActivityDiff
     }
 
     /**
+     * Drop the new values that are null or an empty string: on `created` that is "nothing →
+     * nothing" and only buries the fields the editor actually filled in. 0 and false are
+     * real values and stay. Call it AFTER {@see self::expandTranslations()}.
+     *
+     * @param array<string, mixed> $changes
+     *
+     * @return array<string, mixed>
+     */
+    public static function withoutEmptyValues(array $changes): array
+    {
+        if (is_array($changes['attributes'] ?? null)) {
+            $changes['attributes'] = array_filter(
+                $changes['attributes'],
+                static fn (mixed $value): bool => $value !== null && $value !== '',
+            );
+        }
+
+        return $changes;
+    }
+
+    /**
      * Cut values that are too long (rich content) and list the cut fields.
      *
      * Why: without it every edit of an article stores two HTML blobs (old and new) and

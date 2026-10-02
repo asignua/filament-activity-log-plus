@@ -24,22 +24,40 @@ use Illuminate\Support\Str;
  */
 class ActivityBatch
 {
+    /** Model lifecycle events: they outrank pivot, media and custom entries of the SAME subject. */
+    public const array LIFECYCLE_EVENTS = ['created', 'updated', 'deleted', 'restored'];
+
     private ?string $uuid = null;
 
     private bool $rootClaimed = false;
 
+    /** Subject key (`type:id`) of the current root, null when it has none. */
+    private ?string $rootSubject = null;
+
+    /** Is the current root a model lifecycle event? */
+    private bool $rootLifecycle = false;
+
+    /** Primary key of the current root once it is saved. */
+    private int|string|null $rootId = null;
+
+    /** The root was just claimed and its id is not known yet ({@see self::confirmRoot()}). */
+    private bool $awaitingId = false;
+
+    /** The earlier root that the entry being written takes over from. */
+    private int|string|null $displacedId = null;
+
     public function start(): string
     {
-        $this->uuid = (string) Str::uuid();
-        $this->rootClaimed = false;
+        $this->resetRoot();
+        $this->uuid = $uuid = (string) Str::uuid();
 
-        return $this->uuid;
+        return $uuid;
     }
 
     public function end(): void
     {
         $this->uuid = null;
-        $this->rootClaimed = false;
+        $this->resetRoot();
     }
 
     public function uuid(): ?string
@@ -50,24 +68,71 @@ class ActivityBatch
     /**
      * Is the entry being written the root of the current operation?
      *
-     * Filament saves the model first, then the pivots, then the media, so the save of the
-     * record becomes the root. If only a picture changed (no dirty attributes, so no
-     * model entry) the first media entry becomes the root. Outside a batch every entry
-     * is a root.
+     * The first entry of a batch is the root, with one exception: a model lifecycle entry
+     * (`created`/`updated`/`deleted`/`restored`) takes the root over from an EARLIER secondary
+     * entry (pivot, media, custom) of the same subject. Filament does not guarantee the
+     * order of a save: with a BelongsToMany relation the pivot sync can be written before
+     * the record's own `updated` entry, and the operation would then read "relation changed"
+     * instead of the record update. Between different subjects the first entry stays the
+     * root. When the root is taken over, the caller learns the displaced row from
+     * {@see self::confirmRoot()} and demotes it. Outside a batch every entry is a root.
+     *
+     * @param string|null $subject   Subject key (`type:id`), null when the entry has none
+     * @param bool        $lifecycle Is the entry a model lifecycle event?
      */
-    public function claimRoot(): bool
+    public function claimRoot(?string $subject = null, bool $lifecycle = true): bool
     {
         if ($this->uuid === null) {
             return true;
         }
 
-        if ($this->rootClaimed) {
-            return false;
+        if (!$this->rootClaimed) {
+            $this->rootClaimed = true;
+            $this->rootSubject = $subject;
+            $this->rootLifecycle = $lifecycle;
+            $this->awaitingId = true;
+
+            return true;
         }
 
-        $this->rootClaimed = true;
+        if ($lifecycle && !$this->rootLifecycle && $subject !== null && $subject === $this->rootSubject) {
+            $this->displacedId = $this->rootId;
+            $this->rootLifecycle = true;
+            $this->awaitingId = true;
 
-        return true;
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * The entry that {@see self::claimRoot()} made the root has been saved. Returns the id of
+     * the row that lost the root to it (to be demoted), or null.
+     */
+    public function confirmRoot(int|string $id): int|string|null
+    {
+        if (!$this->awaitingId) {
+            return null;
+        }
+
+        $this->awaitingId = false;
+        $this->rootId = $id;
+
+        $displaced = $this->displacedId;
+        $this->displacedId = null;
+
+        return $displaced;
+    }
+
+    private function resetRoot(): void
+    {
+        $this->rootClaimed = false;
+        $this->rootSubject = null;
+        $this->rootLifecycle = false;
+        $this->rootId = null;
+        $this->awaitingId = false;
+        $this->displacedId = null;
     }
 
     /**
@@ -76,16 +141,20 @@ class ActivityBatch
      */
     public function run(Closure $callback): mixed
     {
-        $previousUuid = $this->uuid;
-        $previousRoot = $this->rootClaimed;
+        $previous = [
+            $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle,
+            $this->rootId, $this->awaitingId, $this->displacedId,
+        ];
 
         $this->start();
 
         try {
             return $callback();
         } finally {
-            $this->uuid = $previousUuid;
-            $this->rootClaimed = $previousRoot;
+            [
+                $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle,
+                $this->rootId, $this->awaitingId, $this->displacedId,
+            ] = $previous;
         }
     }
 }

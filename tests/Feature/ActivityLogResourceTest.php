@@ -237,6 +237,27 @@ class ActivityLogResourceTest extends TestCase
         $this->assertStringContainsString('after-edit', (string) $html);
     }
 
+    public function test_the_history_cards_show_the_author_or_the_system_placeholder(): void
+    {
+        $article = $this->article();
+        $article->slug = 'by-admin';
+        $article->save();
+
+        Activity::query()->create([
+            'log_name' => 'default',
+            'description' => 'system',
+            'event' => 'updated',
+            'subject_type' => $article->getMorphClass(),
+            'subject_id' => $article->getKey(),
+            'causer_label' => null,
+        ]);
+
+        $html = (string) ActivityHistoryAction::make()->record($article)->getModalContent()?->render();
+
+        $this->assertStringContainsString('Audit Tester', $html);
+        $this->assertStringContainsString(__('filament-activity-log-plus::activity-log-plus.ui.system_record'), $html);
+    }
+
     public function test_the_history_is_limited_and_belongs_to_the_record(): void
     {
         config(['activity-log-plus.history_limit' => 2]);

@@ -10,6 +10,8 @@ use BackedEnum;
 use Closure;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Filament\Support\Facades\FilamentAsset;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Gate;
 use UnitEnum;
 
@@ -189,6 +191,11 @@ class ActivityLogPlusPlugin implements Plugin
         if ((bool) value($this->batchMiddleware) && (bool) config('activity-log-plus.batches', true)) {
             $panel->middleware([ActivityBatchMiddleware::class]);
         }
+
+        // After the panel's theme, not before it as auto-loaded plugin assets are: a custom
+        // theme compiles the same utilities, and with equal specificity the later file wins.
+        $panel->renderHook(PanelsRenderHook::STYLES_AFTER, fn (): string => '<link rel="stylesheet" href="'
+            .e(FilamentAsset::getStyleHref(ActivityLogPlusServiceProvider::STYLESHEET, ActivityLogPlusServiceProvider::PACKAGE)).'" />');
     }
 
     public function boot(Panel $panel): void {}

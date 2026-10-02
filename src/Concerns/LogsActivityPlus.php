@@ -78,10 +78,14 @@ trait LogsActivityPlus
             $changes = ActivityDiff::onlyColumns($changes, array_keys($this->getChanges()));
         }
 
-        $activity->setAttribute('attribute_changes', ActivityDiff::expandTranslations(
-            $changes,
-            $this->activityTranslatableAttributes(),
-        ));
+        $changes = ActivityDiff::expandTranslations($changes, $this->activityTranslatableAttributes());
+
+        // A new record: "nothing → nothing" fields (null / '') are noise.
+        if ($eventName === 'created') {
+            $changes = ActivityDiff::withoutEmptyValues($changes);
+        }
+
+        $activity->setAttribute('attribute_changes', $changes);
     }
 
     /**
