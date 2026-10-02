@@ -42,5 +42,7 @@ return [
         'detached' => 'Kaldırıldı',
         'yes' => 'Evet',
         'no' => 'Hayır',
+        'more_records' => '+:count daha',
+        'batch_limited' => 'Bu işlemin yalnızca ilk :count kaydı gösteriliyor.',
     ],
 ];

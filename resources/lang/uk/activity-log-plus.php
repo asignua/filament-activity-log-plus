@@ -42,5 +42,7 @@ return [
         'detached' => 'Прибрано',
         'yes' => 'Так',
         'no' => 'Ні',
+        'more_records' => '+:count ще',
+        'batch_limited' => 'Показано лише перші :count записів операції.',
     ],
 ];

@@ -8,6 +8,8 @@ use Asignua\FilamentActivityLogPlus\ActivityEvents;
 use Asignua\FilamentActivityLogPlus\FieldLabels;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
+use Carbon\CarbonInterface;
+use Filament\Support\Facades\FilamentTimezone;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -45,29 +47,81 @@ final class ActivityPresenter
         $summary = ActivityEvents::get($activity->event)?->summary;
 
         if ($summary !== null) {
-            return (string) $summary($activity);
+            $text = (string) $summary($activity);
+        } elseif (self::isPivotShaped($activity->properties?->toArray() ?? [])) {
+            $text = self::pivotSummary($activity);
+        } else {
+            $text = self::changesSummary($activity);
         }
 
-        if (self::isPivotShaped($activity->properties?->toArray() ?? [])) {
-            return self::pivotSummary($activity);
-        }
-
-        return self::changesSummary($activity);
+        return self::withOtherRecords($text, $activity);
     }
 
     /**
+     * "Title, Slug · +49 more": a root whose operation touched other records too (a bulk
+     * action). `batch_others` is selected by
+     * {@see ActivityRepository::withOtherSubjectsCount()}; without it nothing is added.
+     */
+    private static function withOtherRecords(string $text, Activity $activity): string
+    {
+        $others = (int) $activity->getAttribute('batch_others');
+
+        if ($others <= 0 || !$activity->batch_root) {
+            return $text;
+        }
+
+        $more = __('filament-activity-log-plus::activity-log-plus.ui.more_records', ['count' => $others]);
+
+        return $text === '' ? $more : $text.' · '.$more;
+    }
+
+    /** How many entries of one operation the modal renders at most. */
+    public const int BATCH_LIMIT = 200;
+
+    /**
      * The whole operation: entries with a shared batch_uuid. Outside a batch (console,
-     * queue) the operation is one entry.
+     * queue) the operation is one entry. Pass a $limit to bound a bulk action over thousands
+     * of records ({@see self::batchView()} does).
      *
      * @return Collection<int, Activity>
      */
-    public static function batch(Activity $activity): Collection
+    public static function batch(Activity $activity, ?int $limit = null): Collection
     {
         $repository = app(ActivityRepository::class);
 
         return $activity->batch_uuid === null
             ? $repository->withKey((int) $activity->getKey())
-            : $repository->withBatchUuid($activity->batch_uuid);
+            : $repository->withBatchUuid($activity->batch_uuid, $limit);
+    }
+
+    /**
+     * The data of the operation modal: at most {@see self::BATCH_LIMIT} entries and the
+     * limit when the operation has more (one extra row is read to know that).
+     *
+     * @return array{activities: Collection<int, Activity>, limited: int|null}
+     */
+    public static function batchView(Activity $activity): array
+    {
+        $activities = self::batch($activity, self::BATCH_LIMIT + 1);
+        $limited = $activities->count() > self::BATCH_LIMIT;
+
+        return [
+            'activities' => $limited ? $activities->take(self::BATCH_LIMIT) : $activities,
+            'limited' => $limited ? self::BATCH_LIMIT : null,
+        ];
+    }
+
+    /**
+     * A moment of the log for the modal and the cards: in the panel's timezone and in the
+     * format of the current locale.
+     */
+    public static function dateTime(?CarbonInterface $moment): string
+    {
+        if ($moment === null) {
+            return '';
+        }
+
+        return $moment->copy()->setTimezone(FilamentTimezone::get())->isoFormat('L LTS');
     }
 
     /**

@@ -105,6 +105,58 @@ class ActivityLogTest extends TestCase
         $this->assertSame(['slug' => 'first'], $changes['old']);
     }
 
+    public function test_an_update_whose_diff_is_empty_after_filtering_writes_nothing(): void
+    {
+        $article = $this->article();
+        $this->fresh();
+
+        // The same values in another key order: the raw JSON differs (so Eloquent runs the
+        // UPDATE and spatie sees a change), but no locale changed.
+        $article->title = ['en' => 'Title', 'uk' => 'Заголовок'];
+        $article->save();
+
+        $this->assertTrue($article->wasChanged('title'));
+        $this->assertSame(0, Activity::query()->count());
+    }
+
+    public function test_an_empty_update_does_not_take_the_root_from_a_pivot_entry(): void
+    {
+        $article = $this->article();
+        $tag = Tag::create(['name' => 'News']);
+        $this->fresh();
+
+        $this->batch()->run(function () use ($article, $tag): void {
+            $article->syncAndLog('tags', [$tag->id]);
+            $article->title = ['en' => 'Title', 'uk' => 'Заголовок'];
+            $article->save();
+        });
+
+        $activities = Activity::query()->get();
+
+        $this->assertCount(1, $activities);
+        $this->assertSame('pivot_synced', $activities->first()?->event);
+        $this->assertTrue((bool) $activities->first()?->batch_root);
+    }
+
+    public function test_the_buffer_is_bypassed_inside_a_batch_so_the_root_stays_single(): void
+    {
+        config(['activitylog.buffer.enabled' => true]);
+
+        $article = $this->article();
+        $tag = Tag::create(['name' => 'News']);
+        $this->fresh();
+
+        $this->batch()->run(function () use ($article, $tag): void {
+            $article->syncAndLog('tags', [$tag->id]);
+            $article->slug = 'buffered';
+            $article->save();
+        });
+
+        $this->assertSame(2, Activity::query()->count());
+        $this->assertSame(1, Activity::query()->where('batch_root', true)->count());
+        $this->assertSame('updated', Activity::query()->where('batch_root', true)->firstOrFail()->event);
+    }
+
     public function test_the_hook_drops_columns_that_did_not_go_into_the_update(): void
     {
         $article = $this->article();

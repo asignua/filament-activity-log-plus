@@ -8,10 +8,14 @@ use Asignua\FilamentActivityLogPlus\Actions\ActivityHistoryAction;
 use Asignua\FilamentActivityLogPlus\ActivityEvents;
 use Asignua\FilamentActivityLogPlus\ActivityLogPlusPlugin;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
+use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\ActivityLogResource;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\Pages\ListActivityLog;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\Tables\ActivityLogTable;
+use Asignua\FilamentActivityLogPlus\Support\ActivityPresenter;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
+use Illuminate\Auth\Access\Gate as AccessGate;
+use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Livewire\Livewire;
@@ -25,6 +29,9 @@ class ActivityLogResourceTest extends TestCase
         parent::setUp();
 
         $this->actingAs($this->admin());
+
+        // The resource is closed by default; these tests exercise it as an authorised user.
+        Gate::define(ActivityLogPlusPlugin::GATE_RESOURCE, fn (): bool => true);
     }
 
     /**
@@ -64,9 +71,14 @@ class ActivityLogResourceTest extends TestCase
         $this->assertFalse(ActivityLogResource::canDelete($activity));
     }
 
-    public function test_everyone_in_the_panel_is_allowed_by_default(): void
+    public function test_the_resource_is_closed_by_default_and_history_is_open(): void
     {
-        $this->assertTrue(ActivityLogResource::canAccess());
+        // A fresh gate without the ability defined in setUp().
+        $this->app->instance(GateContract::class, new AccessGate($this->app, fn () => auth()->user()));
+        Gate::clearResolvedInstance(GateContract::class);
+
+        $this->assertFalse(ActivityLogResource::canAccess());
+        $this->get(ActivityLogResource::getUrl('index'))->assertForbidden();
         $this->assertTrue(ActivityLogPlusPlugin::allowsHistory());
     }
 
@@ -142,18 +154,20 @@ class ActivityLogResourceTest extends TestCase
 
         $old = $this->entry($article, 'created', ['batch_root' => true, 'created_at' => now()->subDays(10), 'causer_label' => 'Olena', 'causer_id' => 1, 'causer_type' => 'user']);
         $new = $this->entry($article, 'deleted', ['batch_root' => true, 'created_at' => now(), 'causer_label' => 'Ivan', 'causer_id' => 2, 'causer_type' => 'user']);
+        // Another causer model with the same id must not leak into the "User" filter.
+        $bot = $this->entry($article, 'updated', ['batch_root' => true, 'created_at' => now(), 'causer_label' => 'Bot', 'causer_id' => 2, 'causer_type' => 'bot']);
 
         Livewire::test(ListActivityLog::class)
             ->filterTable('event', 'created')
             ->assertCanSeeTableRecords([$old])
             ->assertCanNotSeeTableRecords([$new])
             ->resetTableFilters()
-            ->filterTable('causer_id', 2)
+            ->filterTable('causer_id', 'user:2')
             ->assertCanSeeTableRecords([$new])
-            ->assertCanNotSeeTableRecords([$old])
+            ->assertCanNotSeeTableRecords([$old, $bot])
             ->resetTableFilters()
             ->filterTable('subject_type', $article->getMorphClass())
-            ->assertCanSeeTableRecords([$old, $new])
+            ->assertCanSeeTableRecords([$old, $new, $bot])
             ->resetTableFilters()
             ->filterTable('period', ['from' => now()->subDays(2)->toDateString(), 'until' => null])
             ->assertCanSeeTableRecords([$new])
@@ -218,6 +232,112 @@ class ActivityLogResourceTest extends TestCase
         // The custom view of a registered event replaces the default body of its card.
         $this->assertStringContainsString('custom-approved: looks fine', $html);
         $this->assertStringContainsString('exported', $html);
+    }
+
+    public function test_the_user_filter_options_are_keyed_by_type_and_id(): void
+    {
+        $article = $this->article();
+        Activity::query()->delete();
+
+        $this->entry($article, 'created', ['causer_label' => 'Ivan', 'causer_id' => 2, 'causer_type' => 'user']);
+        $this->entry($article, 'created', ['causer_label' => 'Bot', 'causer_id' => 2, 'causer_type' => 'bot']);
+
+        $this->assertSame(
+            ['bot:2' => 'Bot', 'user:2' => 'Ivan'],
+            app(ActivityRepository::class)->causerLabelsByKey(),
+        );
+    }
+
+    public function test_the_resource_is_not_globally_searchable(): void
+    {
+        $this->assertFalse(ActivityLogResource::canGloballySearch());
+    }
+
+    public function test_a_bulk_root_counts_the_other_records_of_its_operation(): void
+    {
+        $first = $this->article('first');
+        $second = $this->article('second');
+        $third = $this->article('third');
+        Activity::query()->delete();
+
+        $uuid = '33333333-3333-3333-3333-333333333333';
+        $root = $this->entry($first, 'deleted', ['batch_uuid' => $uuid, 'batch_root' => true]);
+        $this->entry($first, 'media_removed', ['batch_uuid' => $uuid]);
+        $this->entry($second, 'deleted', ['batch_uuid' => $uuid]);
+        $this->entry($third, 'deleted', ['batch_uuid' => $uuid]);
+        $single = $this->entry($first, 'updated', ['batch_uuid' => '44444444-4444-4444-4444-444444444444', 'batch_root' => true]);
+
+        $rows = app(ActivityRepository::class)->withOtherSubjectsCount(Activity::query())->get()->keyBy('id');
+
+        $this->assertSame(2, (int) $rows[$root->id]->getAttribute('batch_others'));
+        $this->assertSame(0, (int) $rows[$single->id]->getAttribute('batch_others'));
+
+        $more = __('filament-activity-log-plus::activity-log-plus.ui.more_records', ['count' => 2]);
+        $this->assertStringContainsString($more, ActivityPresenter::summary($rows[$root->id]));
+        $this->assertStringNotContainsString('+', ActivityPresenter::summary($rows[$single->id]));
+
+        Livewire::test(ListActivityLog::class)
+            ->assertCanSeeTableRecords([$root, $single])
+            ->assertSee($more);
+    }
+
+    public function test_the_operation_modal_is_capped(): void
+    {
+        $article = $this->article();
+        Activity::query()->delete();
+
+        $uuid = '55555555-5555-5555-5555-555555555555';
+        $root = $this->entry($article, 'updated', ['batch_uuid' => $uuid, 'batch_root' => true]);
+
+        for ($i = 0; $i < ActivityPresenter::BATCH_LIMIT; $i++) {
+            $this->entry($article, 'media_added', ['batch_uuid' => $uuid]);
+        }
+
+        $view = ActivityPresenter::batchView($root);
+
+        $this->assertCount(ActivityPresenter::BATCH_LIMIT, $view['activities']);
+        $this->assertSame(ActivityPresenter::BATCH_LIMIT, $view['limited']);
+
+        $html = (string) ActivityLogTable::viewBatchAction()->record($root)->getModalContent()?->render();
+        $this->assertStringContainsString(
+            e(__('filament-activity-log-plus::activity-log-plus.ui.batch_limited', ['count' => ActivityPresenter::BATCH_LIMIT])),
+            $html,
+        );
+
+        Activity::query()->where('event', 'media_added')->limit(1)->delete();
+        $this->assertNull(ActivityPresenter::batchView($root)['limited']);
+    }
+
+    public function test_stored_labels_and_values_are_escaped(): void
+    {
+        $article = $this->article();
+        Activity::query()->delete();
+
+        $this->entry($article, 'approved', [
+            'batch_root' => true,
+            'subject_label' => '<script>alert(1)</script>',
+            'causer_label' => '<img src=x onerror=alert(2)>',
+            'properties' => ['note' => '<b>bold</b>'],
+            'attribute_changes' => ['attributes' => ['slug' => '<i>new</i>'], 'old' => ['slug' => 'old']],
+        ]);
+
+        $html = view('filament-activity-log-plus::batch', ['activities' => Activity::query()->get()])->render();
+
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringNotContainsString('<img src=x', $html);
+        $this->assertStringNotContainsString('<i>new</i>', $html);
+        $this->assertStringContainsString(e('<script>alert(1)</script>'), $html);
+
+        $root = Activity::query()->firstOrFail();
+
+        // The table, and the mounted modal with its heading and description.
+        Livewire::test(ListActivityLog::class)
+            ->assertSeeHtml(e('<script>alert(1)</script>'))
+            ->assertDontSeeHtml('<script>alert(1)</script>')
+            ->assertDontSeeHtml('<img src=x')
+            ->mountTableAction('view_batch', $root)
+            ->assertDontSeeHtml('<script>alert(1)</script>')
+            ->assertDontSeeHtml('<img src=x');
     }
 
     public function test_the_history_action_mounts_on_an_edit_page(): void

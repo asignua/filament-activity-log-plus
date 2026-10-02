@@ -145,7 +145,8 @@ final class ActivityDiff
     }
 
     /**
-     * Cut values that are too long (rich content) and list the cut fields.
+     * Cut values that are too long (rich content, large JSON arrays) and list the cut fields.
+     * An array value that fits is kept as an array; one that does not becomes its cut JSON text.
      *
      * Why: without it every edit of an article stores two HTML blobs (old and new) and
      * within half a year the log is the largest table in the database. The cut fields are
@@ -169,6 +170,16 @@ final class ActivityDiff
             }
 
             foreach ($changes[$side] as $key => $value) {
+                // A non-translatable JSON column (a block builder, settings) arrives as an
+                // array: measured, and cut, as its JSON text, or it would be stored whole.
+                if (is_array($value)) {
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+
+                    if ($value === false) {
+                        continue;
+                    }
+                }
+
                 if (!is_string($value) || mb_strlen($value) <= $maxLength) {
                     continue;
                 }

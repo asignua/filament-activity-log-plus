@@ -112,8 +112,10 @@ class ActivityLogPlusServiceProvider extends PackageServiceProvider
             config(['activitylog.actions.log_activity' => LogActivityAction::class]);
         }
 
-        // A safety net on top of each model's logExcept(): secrets must not reach the log even
-        // from an entry written by hand.
+        // A safety net on top of each model's logExcept(): spatie reads this key in the
+        // LogsActivity trait only, so it guards models that use spatie's trait without ours.
+        // It does NOT filter a hand-written entry: whatever goes into withProperties() is
+        // stored as given, so never pass secrets there.
         config(['activitylog.default_except_attributes' => array_values(array_unique(array_merge(
             (array) config('activitylog.default_except_attributes', []),
             ['password', 'remember_token'],

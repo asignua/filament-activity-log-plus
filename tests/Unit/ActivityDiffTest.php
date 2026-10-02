@@ -71,6 +71,20 @@ class ActivityDiffTest extends TestCase
         self::assertSame(['body.uk'], $changes['truncated']);
     }
 
+    public function test_it_truncates_large_array_values_as_json_and_keeps_small_ones(): void
+    {
+        $blocks = [['type' => 'paragraph', 'text' => str_repeat('я', 50)]];
+
+        $changes = ActivityDiff::truncate([
+            'attributes' => ['blocks' => $blocks, 'settings' => ['a' => 1]],
+            'old' => ['blocks' => null, 'settings' => ['a' => 0]],
+        ], 20);
+
+        self::assertSame('[{"type":"paragraph"…', $changes['attributes']['blocks']);
+        self::assertSame(['a' => 1], $changes['attributes']['settings']);
+        self::assertSame(['blocks'], $changes['truncated']);
+    }
+
     public function test_zero_max_length_disables_truncation(): void
     {
         $long = str_repeat('a', 100);

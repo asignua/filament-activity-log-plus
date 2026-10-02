@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentActivityLogPlus\Actions;
 
 use Asignua\FilamentActivityLogPlus\ActivityBatch;
+use Asignua\FilamentActivityLogPlus\Concerns\LogsActivityPlus;
 use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
 use Asignua\FilamentActivityLogPlus\SubjectLabels;
 use Asignua\FilamentActivityLogPlus\Support\ActivityDiff;
@@ -30,6 +31,10 @@ class LogActivityAction extends SpatieLogActivityAction
 {
     protected function save(Model $activity): void
     {
+        if ($this->isEmptyUpdate($activity)) {
+            return;
+        }
+
         $this->stampBatch($activity);
         $this->stampLabels($activity);
         $this->truncateChanges($activity);
@@ -37,6 +42,55 @@ class LogActivityAction extends SpatieLogActivityAction
         parent::save($activity);
 
         $this->settleRoot($activity);
+    }
+
+    /**
+     * An `updated` entry of a {@see LogsActivityPlus} model whose diff is empty AFTER the
+     * trait filtered it. spatie's `dontLogEmptyChanges` looks at the RAW diff, before
+     * `beforeActivityLogged()` cuts the phantom columns and the unchanged locales, so an
+     * update that only re-encoded a translatable JSON column (key order, escaped unicode)
+     * would otherwise land as an "Updated" row with nothing in it, and, being a lifecycle
+     * event, take the root of the operation over from a real pivot/media entry.
+     *
+     * Only for the trait's own model entries: a hand-written `updated` entry without a diff
+     * is the caller's decision.
+     */
+    protected function isEmptyUpdate(Model $activity): bool
+    {
+        if ($activity->getAttribute('event') !== 'updated') {
+            return false;
+        }
+
+        $subject = $activity->getAttribute('subject');
+
+        if (!$subject instanceof Model || !in_array(LogsActivityPlus::class, class_uses_recursive($subject), true)) {
+            return false;
+        }
+
+        $properties = $activity->getAttribute('properties');
+
+        if ($properties instanceof Collection ? $properties->isNotEmpty() : !empty($properties)) {
+            return false;
+        }
+
+        $changes = $activity->getAttribute('attribute_changes');
+
+        if ($changes instanceof Collection) {
+            $changes = $changes->toArray();
+        }
+
+        return !is_array($changes) || ActivityDiff::isEmpty($changes);
+    }
+
+    /**
+     * spatie's buffer saves the entries at the end of the request, so the key of a root is not
+     * known while the batch is open and a later lifecycle entry could not demote it (two roots
+     * in one operation). Inside a batch the entries are therefore written straight away;
+     * outside one every entry is its own root and the buffer is safe.
+     */
+    protected function shouldBuffer(): bool
+    {
+        return parent::shouldBuffer() && app(ActivityBatch::class)->uuid() === null;
     }
 
     protected function stampBatch(Model $activity): void

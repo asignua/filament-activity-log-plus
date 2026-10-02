@@ -31,6 +31,12 @@ class ActivityLogResource extends Resource
     protected static ?string $recordTitleAttribute = 'subject_label';
 
     /**
+     * The resource has no view/edit page, so every global-search hit would be dropped
+     * after a `LIKE '%term%'` scan over the whole log on each keystroke.
+     */
+    protected static bool $isGloballySearchable = false;
+
+    /**
      * @return class-string<Model>
      */
     public static function getModel(): string

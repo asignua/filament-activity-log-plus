@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentActivityLogPlus\Tests\Feature;
 
+use Asignua\FilamentActivityLogPlus\ActivityLogPlusPlugin;
 use Asignua\FilamentActivityLogPlus\ActivityLogPlusServiceProvider;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\ActivityLogResource;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Support\Facades\Gate;
 
 class StylesheetTest extends TestCase
 {
@@ -31,6 +33,7 @@ class StylesheetTest extends TestCase
     public function test_the_panel_links_the_stylesheet_when_the_plugin_is_on(): void
     {
         $this->actingAs($this->admin());
+        Gate::define(ActivityLogPlusPlugin::GATE_RESOURCE, fn (): bool => true);
 
         $html = $this->get(ActivityLogResource::getUrl('index'))->assertOk()->getContent();
 

@@ -29,7 +29,10 @@ class ActivityLogPlusPlugin implements Plugin
 {
     public const string ID = 'filament-activity-log-plus';
 
-    /** Consulted for the resource when no `authorizeResource()` closure was given and the gate exists. */
+    /**
+     * Consulted for the resource when no `authorizeResource()` closure was given. Without the
+     * closure AND without this gate the resource is closed to everyone (deny by default).
+     */
     public const string GATE_RESOURCE = 'activity-log-plus.view';
 
     /** Consulted for the History action when no `authorizeHistory()` closure was given and the gate exists. */
@@ -67,8 +70,8 @@ class ActivityLogPlusPlugin implements Plugin
 
     /**
      * Who may open the log resource. It shows other people's actions and the addresses of
-     * failed logins, so restrict it. Default: the `activity-log-plus.view` gate when it is
-     * defined, otherwise everyone who can enter the panel.
+     * failed logins, so it is closed by default: without this closure the
+     * `activity-log-plus.view` gate decides, and without the gate nobody sees the resource.
      */
     public function authorizeResource(bool|Closure $callback): static
     {
@@ -170,7 +173,10 @@ class ActivityLogPlusPlugin implements Plugin
             return (bool) value($this->authorizeResource);
         }
 
-        return !Gate::has(self::GATE_RESOURCE) || Gate::allows(self::GATE_RESOURCE);
+        // Deny by default: the log holds every user's actions, the IPs and the addresses typed
+        // into the login form, which the lowest panel role must not read just because the
+        // plugin was registered without a rule.
+        return Gate::has(self::GATE_RESOURCE) && Gate::allows(self::GATE_RESOURCE);
     }
 
     public function canViewHistory(): bool

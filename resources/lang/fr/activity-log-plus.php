@@ -42,5 +42,7 @@ return [
         'detached' => 'Retiré',
         'yes' => 'Oui',
         'no' => 'Non',
+        'more_records' => '+:count de plus',
+        'batch_limited' => 'Seules les :count premières entrées de cette opération sont affichées.',
     ],
 ];

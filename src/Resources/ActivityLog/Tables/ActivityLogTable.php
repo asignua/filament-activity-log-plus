@@ -27,6 +27,7 @@ class ActivityLogTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => app(ActivityRepository::class)->withOtherSubjectsCount($query))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -36,7 +37,7 @@ class ActivityLogTable
 
                 TextColumn::make('created_at')
                     ->label(__(self::LANG.'date'))
-                    ->dateTime('d.m.Y H:i')
+                    ->dateTime()
                     ->sortable(),
 
                 TextColumn::make('causer_label')
@@ -83,9 +84,13 @@ class ActivityLogTable
                     ->label(__(self::LANG.'type'))
                     ->options(fn (): array => self::subjectTypeOptions()),
 
+                // Keyed by `causer_type:causer_id`: two causer models may share an id.
                 SelectFilter::make('causer_id')
                     ->label(__(self::LANG.'user'))
-                    ->options(fn (): array => app(ActivityRepository::class)->causerLabelsById()),
+                    ->options(fn (): array => app(ActivityRepository::class)->causerLabelsByKey())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? app(ActivityRepository::class)->whereCauserKeys($query, [(string) $data['value']])
+                        : $query),
 
                 Filter::make('period')
                     ->schema([
@@ -119,16 +124,14 @@ class ActivityLogTable
                 .($record->subject_label === null ? '' : ' — '.$record->subject_label))
             ->modalDescription(fn (Activity $record): string => trim(
                 ($record->causer_label ?? __(self::LANG.'system_record'))
-                .' · '.($record->created_at?->format('d.m.Y H:i:s') ?? '')
+                .' · '.ActivityPresenter::dateTime($record->created_at)
                 .($record->ip === null ? '' : ' · '.$record->ip),
             ))
             ->modalWidth(Width::FiveExtraLarge)
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__(self::LANG.'close'))
             // @phpstan-ignore argument.type (the view namespace is registered at run time)
-            ->modalContent(fn (Activity $record) => view('filament-activity-log-plus::batch', [
-                'activities' => ActivityPresenter::batch($record),
-            ]));
+            ->modalContent(fn (Activity $record) => view('filament-activity-log-plus::batch', ActivityPresenter::batchView($record)));
     }
 
     /**

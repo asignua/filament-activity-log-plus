@@ -52,10 +52,13 @@ class AuthActivitySubscriber
     {
         // There may be no subject at all (an unknown email): what is left is the attempt
         // itself with the address and the IP, which is exactly why it is logged.
+        // The user of a failed attempt is the TARGET, not the actor: whoever typed the wrong
+        // password is unknown, so the account is the subject and the causer stays empty.
+        // Otherwise a password-guessing run would read as the victim's own actions.
         $this->authActivity('login_failed', $event->user, [
             'guard' => $event->guard,
             'email' => $this->attemptedLogin($event->credentials),
-        ]);
+        ], actor: false);
     }
 
     public function handleLockout(Lockout $event): void
@@ -77,8 +80,9 @@ class AuthActivitySubscriber
 
     /**
      * @param array<string, mixed> $properties
+     * @param bool                 $actor      Is the user also the one who acted (false for a failed attempt)?
      */
-    private function authActivity(string $event, ?Authenticatable $user, array $properties): void
+    private function authActivity(string $event, ?Authenticatable $user, array $properties, bool $actor = true): void
     {
         if (!$this->enabled()) {
             return;
@@ -87,7 +91,11 @@ class AuthActivitySubscriber
         $logger = activity('auth')->event($event);
 
         if ($user instanceof Model) {
-            $logger->performedOn($user)->causedBy($user);
+            $logger->performedOn($user);
+        }
+
+        if ($user instanceof Model && $actor) {
+            $logger->causedBy($user);
         } else {
             $logger->causedByAnonymous();
         }

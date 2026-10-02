@@ -51,6 +51,21 @@ class AuthEventsTest extends TestCase
         $this->assertStringNotContainsString('secret', $raw);
     }
 
+    public function test_a_failed_login_for_an_existing_account_is_not_caused_by_the_victim(): void
+    {
+        $victim = $this->admin();
+        Activity::query()->delete();
+
+        event(new Failed('web', $victim, ['email' => $victim->email, 'password' => 'guess']));
+
+        $activity = $this->last();
+
+        $this->assertSame('login_failed', $activity->event);
+        $this->assertSame($victim->getKey(), $activity->subject_id);
+        $this->assertNull($activity->causer_id);
+        $this->assertNull($activity->causer_label);
+    }
+
     public function test_a_lockout_is_logged_with_the_address(): void
     {
         event(new Lockout(Request::create('/login', 'POST', ['email' => 'brute@example.com'])));

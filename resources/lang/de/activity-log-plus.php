@@ -42,5 +42,7 @@ return [
         'detached' => 'Entfernt',
         'yes' => 'Ja',
         'no' => 'Nein',
+        'more_records' => '+:count weitere',
+        'batch_limited' => 'Es werden nur die ersten :count Einträge dieses Vorgangs angezeigt.',
     ],
 ];

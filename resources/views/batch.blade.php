@@ -4,6 +4,7 @@
     the save of a record, its pivot changes and the files of the same form submit.
 
     $activities: iterable of Activity.
+    $limited: optional; the cap when the operation has more entries than shown.
 --}}
 @php
     use Asignua\FilamentActivityLogPlus\ActivityEvents;
@@ -16,6 +17,10 @@
 @endphp
 
 <div class="activity-log-plus space-y-4 text-sm">
+    @if (($limited ?? null) !== null)
+        <p class="text-gray-500 dark:text-gray-400">{{ __($lang . 'batch_limited', ['count' => $limited]) }}</p>
+    @endif
+
     @foreach ($activities as $entry)
         @php
             $changes = $entry->attribute_changes?->toArray() ?? [];
@@ -41,7 +46,7 @@
 
                 <span class="ms-auto text-xs text-gray-500 dark:text-gray-400">
                     {{ $entry->causer_label ?? __($lang . 'system_record') }}
-                    · {{ $entry->created_at?->format('d.m.Y H:i:s') }}
+                    · {{ ActivityPresenter::dateTime($entry->created_at) }}
                 </span>
             </div>
 

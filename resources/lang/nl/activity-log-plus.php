@@ -42,5 +42,7 @@ return [
         'detached' => 'Verwijderd',
         'yes' => 'Ja',
         'no' => 'Nee',
+        'more_records' => '+:count meer',
+        'batch_limited' => 'Alleen de eerste :count items van deze bewerking worden getoond.',
     ],
 ];

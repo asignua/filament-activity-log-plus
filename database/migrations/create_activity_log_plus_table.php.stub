@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Schema;
  *   the log shows "Post #57" once the record is deleted and the user's NEW name after a rename.
  * - batch_uuid / batch_root: one operation = one batch. batch_root marks the entry that
  *   represents it; the feed shows roots only by default.
- * - ip: for authentication events (failed logins).
+ * - ip: the IP of the request, stored with EVERY entry written during a request (not only
+ *   authentication events). Personal data: cover it in your privacy notice and retention.
  */
 return new class extends Migration
 {
