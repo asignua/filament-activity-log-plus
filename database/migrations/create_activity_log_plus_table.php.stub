@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * The full activity table: the spatie/laravel-activitylog 5 schema plus the columns of
+ * this plugin. For a project that ALREADY has the spatie table use the
+ * `add_activity_log_plus_columns` migration instead of this one.
+ *
+ * Columns added on top of spatie's:
+ * - subject_label / causer_label: a label stored AT THE MOMENT OF THE ACTION. Without them
+ *   the log shows "Post #57" once the record is deleted and the user's NEW name after a rename.
+ * - batch_uuid / batch_root: one operation = one batch. batch_root marks the entry that
+ *   represents it; the feed shows roots only by default.
+ * - ip: for authentication events (failed logins).
+ */
+return new class extends Migration
+{
+    private function table(): string
+    {
+        return (string) config('activity-log-plus.table', 'activity_log');
+    }
+
+    public function up(): void
+    {
+        Schema::create($this->table(), function (Blueprint $table): void {
+            $table->id();
+            $table->string('log_name')->nullable()->index();
+            $table->text('description');
+            // Index names carry the table name: SQLite keeps them unique per database, not per table.
+            $table->nullableMorphs('subject', $this->table().'_subject');
+            $table->string('event')->nullable();
+            $table->nullableMorphs('causer', $this->table().'_causer');
+            $table->json('attribute_changes')->nullable();
+            $table->json('properties')->nullable();
+
+            $table->string('subject_label')->nullable();
+            $table->string('causer_label')->nullable();
+            $table->uuid('batch_uuid')->nullable();
+            $table->boolean('batch_root')->default(false);
+            $table->string('ip', 45)->nullable();
+
+            $table->timestamps();
+
+            $table->index('batch_uuid');
+            $table->index('event');
+            // The feed: operation roots, newest first.
+            $table->index(['batch_root', 'created_at']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists($this->table());
+    }
+};

@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Adds the columns of this plugin to an EXISTING spatie/laravel-activitylog table (set
+ * `activity-log-plus.table` if it is not called `activity_log`). Every column is guarded,
+ * so the migration can be re-run safely. Existing rows keep `batch_root = false`; they
+ * are hidden by the default "Operations only" filter, so switch it off to see the old
+ * history, or run once:
+ *
+ *     UPDATE activity_log SET batch_root = 1 WHERE batch_uuid IS NULL;
+ */
+return new class extends Migration
+{
+    private function table(): string
+    {
+        return (string) config('activity-log-plus.table', 'activity_log');
+    }
+
+    public function up(): void
+    {
+        $name = $this->table();
+
+        Schema::table($name, function (Blueprint $table) use ($name): void {
+            if (!Schema::hasColumn($name, 'subject_label')) {
+                $table->string('subject_label')->nullable();
+            }
+
+            if (!Schema::hasColumn($name, 'causer_label')) {
+                $table->string('causer_label')->nullable();
+            }
+
+            if (!Schema::hasColumn($name, 'batch_uuid')) {
+                $table->uuid('batch_uuid')->nullable()->index();
+            }
+
+            if (!Schema::hasColumn($name, 'batch_root')) {
+                $table->boolean('batch_root')->default(false);
+            }
+
+            if (!Schema::hasColumn($name, 'ip')) {
+                $table->string('ip', 45)->nullable();
+            }
+        });
+
+        if (!Schema::hasIndex($name, ['batch_root', 'created_at'])) {
+            Schema::table($name, function (Blueprint $table): void {
+                $table->index(['batch_root', 'created_at']);
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        $name = $this->table();
+
+        Schema::table($name, function (Blueprint $table): void {
+            $table->dropIndex(['batch_root', 'created_at']);
+            $table->dropIndex(['batch_uuid']);
+        });
+
+        Schema::table($name, function (Blueprint $table) use ($name): void {
+            foreach (['subject_label', 'causer_label', 'batch_uuid', 'batch_root', 'ip'] as $column) {
+                if (Schema::hasColumn($name, $column)) {
+                    $table->dropColumn($column);
+                }
+            }
+        });
+    }
+};

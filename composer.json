@@ -1,0 +1,71 @@
+{
+    "name": "asignua/filament-activity-log-plus",
+    "description": "An audit trail for Filament 5 on top of spatie/laravel-activitylog 5: per-language diffs of translatable fields, no phantom changes, one operation = one batch, pivot and media changes recorded against the owner, a History action and a read-only log resource.",
+    "keywords": ["filament", "filament-plugin", "laravel", "activity-log", "audit", "audit-trail", "spatie", "translatable", "history"],
+    "homepage": "https://github.com/asignua/filament-activity-log-plus",
+    "support": {
+        "issues": "https://github.com/asignua/filament-activity-log-plus/issues",
+        "source": "https://github.com/asignua/filament-activity-log-plus"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mykhailo Hladchenko",
+            "email": "myhailo@hotmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "filament/filament": "^5.0",
+        "illuminate/contracts": "^12.0|^13.0",
+        "spatie/laravel-activitylog": "^5.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^10.0|^11.0",
+        "phpunit/phpunit": "^11.5|^12.0",
+        "spatie/laravel-medialibrary": "^11.0",
+        "spatie/laravel-permission": "^6.0|^7.0",
+        "spatie/laravel-translatable": "^6.0"
+    },
+    "suggest": {
+        "spatie/laravel-medialibrary": "Records file uploads and removals against the owning model (media_added / media_removed).",
+        "spatie/laravel-permission": "Records role grants and revocations (role_attached / role_detached).",
+        "spatie/laravel-translatable": "Translatable fields are picked up automatically through getTranslatableAttributes()."
+    },
+    "autoload": {
+        "psr-4": {
+            "Asignua\\FilamentActivityLogPlus\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Asignua\\FilamentActivityLogPlus\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/",
+            "Workbench\\Database\\Factories\\": "workbench/database/factories/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": false
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Asignua\\FilamentActivityLogPlus\\ActivityLogPlusServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
