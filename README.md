@@ -62,7 +62,7 @@ One operation, opened from the log: the record save and the tag sync of the same
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.4+ (spatie/laravel-activitylog 5 requires it)
 - Laravel 12 or 13
 - Filament 5
 - `spatie/laravel-activitylog` 5 (installed as a dependency)

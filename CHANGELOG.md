@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
+## v1.0.1 - 2026-10-03
+
+- Requires PHP 8.4, as `spatie/laravel-activitylog` 5 does (the `^8.3` constraint could never be installed on PHP 8.3). CI tests PHP 8.4 and 8.5.
+
 ## v1.0.0 - 2026-10-03
 
 - `LogsActivityPlus` trait for `spatie/laravel-activitylog` 5: `logAll()` (works with `$guarded = ['*']`), dirty-only diffs, secrets excluded, model hooks `activityExcept()`, `activityTranslatableAttributes()` and `activityIgnoreOnlyChanged()`.
