@@ -1,6 +1,6 @@
 {
     "name": "asignua/filament-activity-log-plus",
-    "description": "An audit trail for Filament 5 on top of spatie/laravel-activitylog 5: per-language diffs of translatable fields, no phantom changes, one operation = one batch, pivot and media changes recorded against the owner, a History action and a read-only log resource.",
+    "description": "An audit trail for Filament 5 on top of spatie/laravel-activitylog 5 that records what really happened: per-language diffs of translatable JSON fields (title.uk / title.en), no phantom changes caused by database defaults, one Save in the panel = one batch, pivot sync() and media uploads recorded against the owner record, and labels frozen at write time. Ships a History header action, a read-only activity log resource, auth events and pruning.",
     "keywords": ["filament", "filament-plugin", "laravel", "activity-log", "audit", "audit-trail", "spatie", "translatable", "history"],
     "homepage": "https://github.com/asignua/filament-activity-log-plus",
     "support": {
