@@ -2,7 +2,7 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
-## Unreleased
+## v1.1.0 - 2026-10-08
 
 - Dependencies: the dev constraint of `spatie/laravel-permission` now allows `^8.0` (tested on 8.3; the role events are unchanged).
 - Security: `LogsActivityPlus` no longer logs `$hidden` attributes or columns with an encrypted cast (`encrypted*` strings and the `AsEncryptedCollection` / `AsEncryptedArrayObject` class casts; Filament MFA `app_authentication_secret` / recovery codes, `two_factor_*`, API tokens were stored in plain text, because spatie decrypts them before reading). The MFA column names are also in the default `except` config and in `activitylog.default_except_attributes`.
