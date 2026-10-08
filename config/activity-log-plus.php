@@ -99,9 +99,14 @@ return [
     |
     | Never written to the log by the `LogsActivityPlus` trait. A model adds its
     | own secrets by overriding `activityExcept()` (do not replace this list).
+    | `$hidden` attributes and `encrypted` casts of the model are excluded automatically.
     | The secrets are also added to `activitylog.default_except_attributes`.
     */
-    'except' => ['id', 'password', 'remember_token', 'created_at', 'updated_at'],
+    'except' => [
+        'id', 'password', 'remember_token', 'created_at', 'updated_at',
+        'app_authentication_secret', 'app_authentication_recovery_codes',
+        'two_factor_secret', 'two_factor_recovery_codes',
+    ],
 
     /*
     |--------------------------------------------------------------------------

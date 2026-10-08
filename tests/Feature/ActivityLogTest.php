@@ -6,8 +6,10 @@ namespace Asignua\FilamentActivityLogPlus\Tests\Feature;
 
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
+use Illuminate\Database\Eloquent\Casts\AsEncryptedCollection;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 use function Livewire\trigger;
@@ -202,14 +204,124 @@ class ActivityLogTest extends TestCase
         $this->assertSame('Audit Tester', $activity->fresh()?->causer_label);
     }
 
-    public function test_the_ip_is_stamped_from_the_request(): void
+    public function test_the_ip_is_stamped_from_a_real_http_request(): void
     {
+        $this->batch()->start(http: true);
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9']);
         $this->app->instance('request', Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '203.0.113.9']));
 
         $this->article();
 
         $this->assertSame('203.0.113.9', Activity::query()->firstOrFail()->ip);
+    }
+
+    public function test_the_synthetic_console_request_does_not_stamp_an_ip(): void
+    {
+        $this->app->instance('request', Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '127.0.0.1']));
+
+        $this->batch()->run(fn () => $this->article());
+
+        $this->assertNull(Activity::query()->firstOrFail()->ip);
+    }
+
+    public function test_hidden_and_encrypted_attributes_never_reach_the_log(): void
+    {
+        $article = new class extends Article
+        {
+            protected $table = 'articles';
+
+            protected $hidden = ['path'];
+
+            // Article lists `secret` itself: only the encrypted cast may keep it out of the log here.
+            protected function activityExcept(): array
+            {
+                return [];
+            }
+
+            protected function casts(): array
+            {
+                return ['title' => 'array', 'secret' => 'encrypted'];
+            }
+
+            public function getMorphClass(): string
+            {
+                return Article::class;
+            }
+        };
+        $article->slug = 'hidden-test';
+        $article->title = ['en' => 'T'];
+        $article->path = 'hidden-path-value';
+        $article->secret = 'totp-secret-value';
+        $article->save();
+
+        $raw = (string) $this->last()->getRawOriginal('attribute_changes');
+
+        $this->assertStringContainsString('hidden-test', $raw);
+        $this->assertStringNotContainsString('hidden-path-value', $raw);
+        $this->assertStringNotContainsString('totp-secret-value', $raw);
+    }
+
+    public function test_encrypted_class_casts_never_reach_the_log(): void
+    {
+        $article = new class extends Article
+        {
+            protected $table = 'articles';
+
+            protected function activityExcept(): array
+            {
+                return [];
+            }
+
+            protected function casts(): array
+            {
+                return [
+                    'title' => 'array',
+                    'secret' => AsEncryptedCollection::class,
+                    'path' => AsEncryptedCollection::using(Collection::class),
+                ];
+            }
+
+            public function getMorphClass(): string
+            {
+                return Article::class;
+            }
+        };
+        $article->slug = 'class-cast-test';
+        $article->title = ['en' => 'T'];
+        $article->secret = ['k' => 'collection-secret-value'];
+        $article->path = ['k' => 'array-object-secret-value'];
+        $article->save();
+
+        $raw = (string) $this->last()->getRawOriginal('attribute_changes');
+
+        $this->assertStringContainsString('class-cast-test', $raw);
+        $this->assertStringNotContainsString('collection-secret-value', $raw);
+        $this->assertStringNotContainsString('array-object-secret-value', $raw);
+    }
+
+    public function test_the_mfa_secrets_are_in_the_default_exclusions(): void
+    {
+        foreach (['app_authentication_secret', 'app_authentication_recovery_codes', 'two_factor_secret'] as $column) {
+            $this->assertContains($column, config('activity-log-plus.except'));
+            $this->assertContains($column, config('activitylog.default_except_attributes'));
+        }
+    }
+
+    public function test_a_pivot_title_is_resolved_past_the_global_scopes_of_the_related_model(): void
+    {
+        $article = $this->article();
+        $tag = Tag::create(['name' => 'Hidden']);
+        $this->fresh();
+
+        Tag::addGlobalScope('visible', fn ($query) => $query->where('name', '!=', 'Hidden'));
+
+        try {
+            $article->syncAndLog('tags', [$tag->id]);
+        } finally {
+            Tag::clearBootedModels();
+        }
+
+        $this->assertSame([['id' => $tag->id, 'title' => 'Hidden']], $this->last()->properties?->toArray()['attached']);
     }
 
     public function test_secrets_never_reach_the_log(): void

@@ -79,7 +79,7 @@ class ActivityLogPlusServiceProvider extends PackageServiceProvider
         // with the next request.
         if ((bool) config('activity-log-plus.batches', true) && function_exists('Livewire\\on')) {
             on('request', static function (): void {
-                app(ActivityBatch::class)->start();
+                app(ActivityBatch::class)->start(http: true);
             });
         }
 
@@ -118,7 +118,11 @@ class ActivityLogPlusServiceProvider extends PackageServiceProvider
         // stored as given, so never pass secrets there.
         config(['activitylog.default_except_attributes' => array_values(array_unique(array_merge(
             (array) config('activitylog.default_except_attributes', []),
-            ['password', 'remember_token'],
+            [
+                'password', 'remember_token',
+                'app_authentication_secret', 'app_authentication_recovery_codes',
+                'two_factor_secret', 'two_factor_recovery_codes',
+            ],
         )))]);
     }
 }

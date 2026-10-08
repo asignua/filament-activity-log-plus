@@ -14,6 +14,7 @@ use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\Pages\ListActivityLog;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\Tables\ActivityLogTable;
 use Asignua\FilamentActivityLogPlus\Support\ActivityPresenter;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
+use Filament\Support\Facades\FilamentTimezone;
 use Illuminate\Auth\Access\Gate as AccessGate;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Support\Facades\Gate;
@@ -174,6 +175,26 @@ class ActivityLogResourceTest extends TestCase
             ->assertCanNotSeeTableRecords([$old]);
     }
 
+    public function test_the_period_filter_uses_calendar_days_of_the_panel_timezone(): void
+    {
+        config(['app.timezone' => 'UTC']);
+        FilamentTimezone::set('Europe/Kyiv');
+
+        $article = $this->article();
+        Activity::query()->delete();
+
+        // 01:30 on 7 October in Kyiv (UTC+3), still the 6th in UTC.
+        $inside = $this->entry($article, 'updated', ['created_at' => '2026-10-06 22:30:00']);
+        $before = $this->entry($article, 'updated', ['created_at' => '2026-10-06 20:30:00']);
+        $after = $this->entry($article, 'updated', ['created_at' => '2026-10-07 21:30:00']);
+
+        $ids = ActivityLogTable::wherePeriod(Activity::query(), '2026-10-07', '2026-10-07')->pluck('id')->all();
+
+        $this->assertSame([$inside->id], $ids);
+        $this->assertNotContains($before->id, $ids);
+        $this->assertNotContains($after->id, $ids);
+    }
+
     public function test_the_view_batch_action_mounts_and_lists_the_whole_operation(): void
     {
         $article = $this->article();
@@ -264,6 +285,9 @@ class ActivityLogResourceTest extends TestCase
         $root = $this->entry($first, 'deleted', ['batch_uuid' => $uuid, 'batch_root' => true]);
         $this->entry($first, 'media_removed', ['batch_uuid' => $uuid]);
         $this->entry($second, 'deleted', ['batch_uuid' => $uuid]);
+        // Several entries of one record count as ONE other record.
+        $this->entry($second, 'media_removed', ['batch_uuid' => $uuid]);
+        $this->entry($second, 'media_removed', ['batch_uuid' => $uuid]);
         $this->entry($third, 'deleted', ['batch_uuid' => $uuid]);
         $single = $this->entry($first, 'updated', ['batch_uuid' => '44444444-4444-4444-4444-444444444444', 'batch_root' => true]);
 

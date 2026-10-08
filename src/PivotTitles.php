@@ -83,7 +83,7 @@ final class PivotTitles
 
         $titles = [];
 
-        foreach ($relationObject->getRelated()->newQuery()->findMany($ids) as $related) {
+        foreach ($relationObject->getRelated()->newQueryWithoutScopes()->findMany($ids) as $related) {
             $label = SubjectLabels::label($related);
 
             if ($label !== null) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentActivityLogPlus\Tests\Feature;
 
+use Asignua\FilamentActivityLogPlus\ActivityBatch;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
 use Illuminate\Auth\Events\Failed;
@@ -90,6 +91,33 @@ class AuthEventsTest extends TestCase
 
         $detached = Activity::query()->where('event', 'role_detached')->firstOrFail();
         $this->assertSame(['editor'], $detached->properties?->toArray()['roles']);
+    }
+
+    public function test_the_spatie_permission_v6_event_names_are_logged_too(): void
+    {
+        $user = $this->admin();
+        Activity::query()->delete();
+
+        event('Spatie\\Permission\\Events\\RoleAttached', [(object) ['model' => $user, 'rolesOrIds' => ['editor']]]);
+        event('Spatie\\Permission\\Events\\RoleDetached', [(object) ['model' => $user, 'rolesOrIds' => ['editor']]]);
+
+        $this->assertSame(['role_attached', 'role_detached'], Activity::query()->orderBy('id')->pluck('event')->all());
+    }
+
+    public function test_a_host_update_of_the_user_during_login_does_not_take_the_root_from_the_login(): void
+    {
+        $user = $this->admin();
+        Activity::query()->delete();
+
+        app(ActivityBatch::class)->run(function () use ($user): void {
+            event(new Login('web', $user, false));
+            $user->update(['name' => 'Logged in '.uniqid()]);
+        });
+
+        $root = Activity::query()->where('batch_root', true)->get();
+
+        $this->assertCount(1, $root);
+        $this->assertSame('login', $root->first()?->event);
     }
 
     public function test_the_permission_package_events_are_forced_on(): void

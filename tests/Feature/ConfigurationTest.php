@@ -85,6 +85,27 @@ class ConfigurationTest extends TestCase
         $this->assertFalse(Schema::hasColumn('activity_log', 'batch_uuid'));
     }
 
+    public function test_the_add_columns_migration_indexes_an_existing_batch_uuid_and_rolls_back_cleanly(): void
+    {
+        Schema::drop('activity_log');
+        Schema::create('activity_log', function ($table): void {
+            $table->id();
+            $table->text('description');
+            $table->uuid('batch_uuid')->nullable();
+            $table->timestamps();
+        });
+
+        $migration = include __DIR__.'/../../database/migrations/add_activity_log_plus_columns.php.stub';
+        $migration->up();
+
+        $this->assertTrue(Schema::hasIndex('activity_log', ['batch_uuid']));
+
+        $migration->down();
+        $migration->down();
+
+        $this->assertFalse(Schema::hasColumn('activity_log', 'batch_uuid'));
+    }
+
     public function test_both_migrations_are_publishable(): void
     {
         $stubs = array_keys(ServiceProvider::pathsToPublish(null, 'filament-activity-log-plus-migrations'));

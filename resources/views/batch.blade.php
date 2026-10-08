@@ -16,7 +16,8 @@
     $lang = 'filament-activity-log-plus::activity-log-plus.ui.';
 @endphp
 
-<div class="activity-log-plus space-y-4 text-sm">
+<div class="activity-log-plus">
+<div class="space-y-4 text-sm">
     @if (($limited ?? null) !== null)
         <p class="text-gray-500 dark:text-gray-400">{{ __($lang . 'batch_limited', ['count' => $limited]) }}</p>
     @endif
@@ -111,4 +112,5 @@
             @endif
         </div>
     @endforeach
+</div>
 </div>

@@ -12,6 +12,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Enums\Width;
+use Filament\Support\Facades\FilamentTimezone;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -97,9 +98,7 @@ class ActivityLogTable
                         DatePicker::make('from')->label(__(self::LANG.'from')),
                         DatePicker::make('until')->label(__(self::LANG.'until')),
                     ])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['from'] ?? null, fn (Builder $q, string $date): Builder => $q->whereDate('created_at', '>=', Carbon::parse($date)))
-                        ->when($data['until'] ?? null, fn (Builder $q, string $date): Builder => $q->whereDate('created_at', '<=', Carbon::parse($date)))),
+                    ->query(fn (Builder $query, array $data): Builder => self::wherePeriod($query, $data['from'] ?? null, $data['until'] ?? null)),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -108,6 +107,26 @@ class ActivityLogTable
             ])
             ->defaultSort('id', 'desc')
             ->paginated([25, 50, 100]);
+    }
+
+    /**
+     * The picked days are calendar days of the PANEL timezone (the one `created_at` is shown
+     * in), so they are turned into a half-open range of instants in the app timezone and
+     * compared with the raw column: `whereDate()` would cut the day at UTC and could not use
+     * the index.
+     *
+     * @param Builder<Activity> $query
+     *
+     * @return Builder<Activity>
+     */
+    public static function wherePeriod(Builder $query, mixed $from, mixed $until): Builder
+    {
+        $panel = FilamentTimezone::get();
+        $app = (string) config('app.timezone');
+
+        return $query
+            ->when(filled($from), fn (Builder $q): Builder => $q->where('created_at', '>=', Carbon::parse((string) $from, $panel)->startOfDay()->setTimezone($app)))
+            ->when(filled($until), fn (Builder $q): Builder => $q->where('created_at', '<', Carbon::parse((string) $until, $panel)->addDay()->startOfDay()->setTimezone($app)));
     }
 
     /**

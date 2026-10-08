@@ -26,7 +26,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * 3. Phantom changes are filtered through `getChanges()` (see {@see ActivityDiff::onlyColumns()}).
  * 4. `dontLogIfAttributesChangedOnly()` for derived columns (config `ignore_only_changed`,
  *    or {@see self::activityIgnoreOnlyChanged()}).
- * 5. Secrets never reach the log (config `except`, plus {@see self::activityExcept()}).
+ * 5. Secrets never reach the log (config `except`, `$hidden` and `encrypted` attributes, plus
+ *    {@see self::activityExcept()}).
  *
  * Hooks a model may override (all optional, all `protected`):
  *
@@ -98,7 +99,19 @@ trait LogsActivityPlus
         /** @var list<string> $base */
         $base = array_values((array) config('activity-log-plus.except', []));
 
-        return array_values(array_unique([...$base, ...$this->activityExcept()]));
+        // Hidden attributes are by definition not to be serialised, and an `encrypted` cast is
+        // decrypted by getAttribute() before spatie reads it: without this the TOTP secret or
+        // the recovery codes of Filament MFA would land in the log in plain text.
+        // Matches `encrypted`, `encrypted:array` and the class casts AsEncryptedArrayObject /
+        // AsEncryptedCollection (also with ::using(), which yields `Class:Arg`).
+        // The PHPDoc says string, but a custom model may return a cast object: stay defensive.
+        $encrypted = array_keys(array_filter(
+            $this->getCasts(),
+            // @phpstan-ignore function.alreadyNarrowedType
+            static fn (mixed $cast): bool => is_string($cast) && stripos($cast, 'encrypted') !== false,
+        ));
+
+        return array_values(array_unique([...$base, ...$this->getHidden(), ...$encrypted, ...$this->activityExcept()]));
     }
 
     /**

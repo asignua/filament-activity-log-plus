@@ -37,6 +37,9 @@ class ActivityBatch
     /** Is the current root a model lifecycle event? */
     private bool $rootLifecycle = false;
 
+    /** Is the current root an authentication entry? It is never displaced. */
+    private bool $rootSealed = false;
+
     /** Primary key of the current root once it is saved. */
     private int|string|null $rootId = null;
 
@@ -46,8 +49,17 @@ class ActivityBatch
     /** The earlier root that the entry being written takes over from. */
     private int|string|null $displacedId = null;
 
-    public function start(): string
+    /** Is the batch opened by a real HTTP request (the panel middleware or the Livewire hook)? */
+    private bool $http = false;
+
+    /**
+     * @param bool $http Opened by an HTTP request: artisan and queue workers bind a synthetic
+     *                   request too, so {@see self::isHttp()} is the only reliable signal
+     *                   (also under Octane, which runs in console mode)
+     */
+    public function start(bool $http = false): string
     {
+        $this->http = $this->http || $http;
         $this->resetRoot();
         $this->uuid = $uuid = (string) Str::uuid();
 
@@ -57,7 +69,13 @@ class ActivityBatch
     public function end(): void
     {
         $this->uuid = null;
+        $this->http = false;
         $this->resetRoot();
+    }
+
+    public function isHttp(): bool
+    {
+        return $this->http;
     }
 
     public function uuid(): ?string
@@ -79,8 +97,11 @@ class ActivityBatch
      *
      * @param string|null $subject   Subject key (`type:id`), null when the entry has none
      * @param bool        $lifecycle Is the entry a model lifecycle event?
+     * @param bool        $sealed    Is it an authentication entry? Its subject is the user, and a
+     *                               host listener that updates the user on login (`last_login_at`)
+     *                               must not take the sign-in's place as the root.
      */
-    public function claimRoot(?string $subject = null, bool $lifecycle = true): bool
+    public function claimRoot(?string $subject = null, bool $lifecycle = true, bool $sealed = false): bool
     {
         if ($this->uuid === null) {
             return true;
@@ -90,12 +111,13 @@ class ActivityBatch
             $this->rootClaimed = true;
             $this->rootSubject = $subject;
             $this->rootLifecycle = $lifecycle;
+            $this->rootSealed = $sealed;
             $this->awaitingId = true;
 
             return true;
         }
 
-        if ($lifecycle && !$this->rootLifecycle && $subject !== null && $subject === $this->rootSubject) {
+        if ($lifecycle && !$this->rootLifecycle && !$this->rootSealed && $subject !== null && $subject === $this->rootSubject) {
             $this->displacedId = $this->rootId;
             $this->rootLifecycle = true;
             $this->awaitingId = true;
@@ -130,6 +152,7 @@ class ActivityBatch
         $this->rootClaimed = false;
         $this->rootSubject = null;
         $this->rootLifecycle = false;
+        $this->rootSealed = false;
         $this->rootId = null;
         $this->awaitingId = false;
         $this->displacedId = null;
@@ -142,7 +165,7 @@ class ActivityBatch
     public function run(Closure $callback): mixed
     {
         $previous = [
-            $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle,
+            $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle, $this->rootSealed,
             $this->rootId, $this->awaitingId, $this->displacedId,
         ];
 
@@ -152,7 +175,7 @@ class ActivityBatch
             return $callback();
         } finally {
             [
-                $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle,
+                $this->uuid, $this->rootClaimed, $this->rootSubject, $this->rootLifecycle, $this->rootSealed,
                 $this->rootId, $this->awaitingId, $this->displacedId,
             ] = $previous;
         }

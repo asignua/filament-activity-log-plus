@@ -78,8 +78,8 @@ class ActivityRepository
     }
 
     /**
-     * Add `batch_others` to every row of the feed: how many entries of the same operation
-     * belong to OTHER subjects. A bulk delete of 50 records is one operation with one root,
+     * Add `batch_others` to every row of the feed: how many OTHER records (distinct subjects)
+     * the same operation touched. A bulk delete of 50 records is one operation with one root,
      * and without the count the feed would read as if only the first record was deleted.
      * One correlated COUNT per row of the page, over the `batch_uuid` index.
      *
@@ -94,6 +94,13 @@ class ActivityRepository
         $others = $this->query()
             ->from($table, 'others')
             ->selectRaw('count(*)')
+            // One row per other RECORD: only the first entry of each subject within the batch.
+            ->whereNotExists(fn ($earlier) => $earlier
+                ->from($table, 'earlier')
+                ->whereColumn('earlier.batch_uuid', 'others.batch_uuid')
+                ->whereColumn('earlier.subject_type', 'others.subject_type')
+                ->whereColumn('earlier.subject_id', 'others.subject_id')
+                ->whereColumn('earlier.id', '<', 'others.id'))
             ->whereNotNull("{$table}.batch_uuid")
             ->whereColumn('others.batch_uuid', "{$table}.batch_uuid")
             ->whereNotNull('others.subject_id')

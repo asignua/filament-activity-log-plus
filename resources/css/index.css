@@ -14,6 +14,18 @@
 
 @reference '../../vendor/filament/filament/resources/css/theme.css';
 
-@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+/*
+ * The utilities are scoped to the plugin's own markup (`.activity-log-plus`, zero extra
+ * specificity). The file is linked AFTER the panel theme on every page, so bare `.flex` or
+ * `.text-gray-500` here would beat the host's `lg:hidden` / `dark:text-gray-500` variants of
+ * equal specificity on elements that are not ours.
+ */
+@layer utilities {
+    :where(.activity-log-plus) {
+        @tailwind utilities;
+    }
+}
 
+@source not '../../{src,tests,workbench,vendor,node_modules,build,art,config,database}';
+@source not '../../*.md';
 @source '../views';

@@ -2,6 +2,19 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
+## Unreleased
+
+- Dependencies: the dev constraint of `spatie/laravel-permission` now allows `^8.0` (tested on 8.3; the role events are unchanged).
+- Security: `LogsActivityPlus` no longer logs `$hidden` attributes or columns with an encrypted cast (`encrypted*` strings and the `AsEncryptedCollection` / `AsEncryptedArrayObject` class casts; Filament MFA `app_authentication_secret` / recovery codes, `two_factor_*`, API tokens were stored in plain text, because spatie decrypts them before reading). The MFA column names are also in the default `except` config and in `activitylog.default_except_attributes`.
+- Role grants and revocations are logged on `spatie/laravel-permission` v6 too (its events are `RoleAttached` / `RoleDetached`; v7 renamed them to `...Event`).
+- The compiled stylesheet is scoped to the plugin's own markup (`:where(.activity-log-plus) .flex`), so linking it after the panel theme no longer overrides the host's responsive and `dark:` utilities. Rebuild with `npm run build`.
+- The "From / Until" filter takes calendar days of the panel timezone and compares the raw `created_at` (index-friendly) instead of `whereDate()` on UTC days.
+- "+N more" counts other records of the operation, not their entries.
+- A host update of the user during login/logout (`last_login_at`) no longer takes the batch root from the `login` / `logout` entry.
+- Pivot titles are resolved without the global scopes of the related model (soft-deleted or scoped records keep their name instead of `#id`).
+- The migration indexes a pre-existing `batch_uuid` column (activitylog v4 table) and `down()` only drops indexes that exist. README and the stub docblock now say that legacy v4 rows need `UPDATE activity_log SET batch_root = 1`, and that `down()` drops `batch_uuid` even if it pre-existed.
+- Entries written by artisan or a queue worker no longer get the synthetic `127.0.0.1` IP (`ActivityBatch::start(http: true)` marks real requests, also under Octane).
+
 ## v1.0.1 - 2026-10-03
 
 - Requires PHP 8.4, as `spatie/laravel-activitylog` 5 does (the `^8.3` constraint could never be installed on PHP 8.3). CI tests PHP 8.4 and 8.5.

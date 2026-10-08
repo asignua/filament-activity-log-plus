@@ -11,8 +11,6 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Events\Dispatcher;
-use Spatie\Permission\Events\RoleAttachedEvent;
-use Spatie\Permission\Events\RoleDetachedEvent;
 
 /**
  * Authentication events and role changes in the log (`log_auth`).
@@ -34,8 +32,16 @@ class AuthActivitySubscriber
         $events->listen(Logout::class, [self::class, 'handleLogout']);
         $events->listen(Failed::class, [self::class, 'handleFailed']);
         $events->listen(Lockout::class, [self::class, 'handleLockout']);
-        $events->listen(RoleAttachedEvent::class, [self::class, 'handleRoleAttached']);
-        $events->listen(RoleDetachedEvent::class, [self::class, 'handleRoleDetached']);
+
+        // spatie/laravel-permission renamed the classes in v7 (`RoleAttachedEvent`); v6.15+ fires
+        // `RoleAttached`. The names are strings on purpose: the package is optional.
+        foreach (['RoleAttached', 'RoleAttachedEvent'] as $class) {
+            $events->listen('Spatie\\Permission\\Events\\'.$class, [self::class, 'handleRoleAttached']);
+        }
+
+        foreach (['RoleDetached', 'RoleDetachedEvent'] as $class) {
+            $events->listen('Spatie\\Permission\\Events\\'.$class, [self::class, 'handleRoleDetached']);
+        }
     }
 
     public function handleLogin(Login $event): void
@@ -68,14 +74,14 @@ class AuthActivitySubscriber
         ]);
     }
 
-    public function handleRoleAttached(RoleAttachedEvent $event): void
+    public function handleRoleAttached(object $event): void
     {
-        $this->roleActivity('role_attached', $event->model, $event->rolesOrIds);
+        $this->roleEvent('role_attached', $event);
     }
 
-    public function handleRoleDetached(RoleDetachedEvent $event): void
+    public function handleRoleDetached(object $event): void
     {
-        $this->roleActivity('role_detached', $event->model, $event->rolesOrIds);
+        $this->roleEvent('role_detached', $event);
     }
 
     /**
@@ -102,6 +108,15 @@ class AuthActivitySubscriber
 
         $logger->withProperties(array_filter($properties, static fn (mixed $value): bool => $value !== null))
             ->log($event);
+    }
+
+    private function roleEvent(string $event, object $payload): void
+    {
+        $model = $payload->model ?? null;
+
+        if ($model instanceof Model) {
+            $this->roleActivity($event, $model, $payload->rolesOrIds ?? []);
+        }
     }
 
     private function roleActivity(string $event, Model $model, mixed $rolesOrIds): void

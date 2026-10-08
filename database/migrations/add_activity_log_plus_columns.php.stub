@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Schema;
  * history, or run once:
  *
  *     UPDATE activity_log SET batch_root = 1 WHERE batch_uuid IS NULL;
+ *
+ * A table upgraded from activitylog v4 still carries the v4 `batch_uuid` on its old rows, so
+ * the statement above skips them: use `UPDATE activity_log SET batch_root = 1` (or first
+ * `SET batch_uuid = NULL`) for such a table. `down()` drops `batch_uuid` as well, even when
+ * the column existed before this migration.
  */
 return new class extends Migration
 {
@@ -36,7 +41,7 @@ return new class extends Migration
             }
 
             if (!Schema::hasColumn($name, 'batch_uuid')) {
-                $table->uuid('batch_uuid')->nullable()->index();
+                $table->uuid('batch_uuid')->nullable();
             }
 
             if (!Schema::hasColumn($name, 'batch_root')) {
@@ -47,6 +52,14 @@ return new class extends Migration
                 $table->string('ip', 45)->nullable();
             }
         });
+
+        // Indexed on its own: a table upgraded from activitylog v4 already has the column, but
+        // without an index.
+        if (!Schema::hasIndex($name, ['batch_uuid'])) {
+            Schema::table($name, function (Blueprint $table): void {
+                $table->index(['batch_uuid']);
+            });
+        }
 
         if (!Schema::hasIndex($name, ['batch_root', 'created_at'])) {
             Schema::table($name, function (Blueprint $table): void {
@@ -59,10 +72,13 @@ return new class extends Migration
     {
         $name = $this->table();
 
-        Schema::table($name, function (Blueprint $table): void {
-            $table->dropIndex(['batch_root', 'created_at']);
-            $table->dropIndex(['batch_uuid']);
-        });
+        foreach ([['batch_root', 'created_at'], ['batch_uuid']] as $columns) {
+            if (Schema::hasIndex($name, $columns)) {
+                Schema::table($name, function (Blueprint $table) use ($columns): void {
+                    $table->dropIndex($columns);
+                });
+            }
+        }
 
         Schema::table($name, function (Blueprint $table) use ($name): void {
             foreach (['subject_label', 'causer_label', 'batch_uuid', 'batch_root', 'ip'] as $column) {

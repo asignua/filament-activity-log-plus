@@ -28,7 +28,7 @@
         "orchestra/testbench": "^10.0|^11.0",
         "phpunit/phpunit": "^11.5|^12.0",
         "spatie/laravel-medialibrary": "^11.0",
-        "spatie/laravel-permission": "^6.0|^7.0",
+        "spatie/laravel-permission": "^6.0|^7.0|^8.0",
         "spatie/laravel-translatable": "^6.0"
     },
     "suggest": {

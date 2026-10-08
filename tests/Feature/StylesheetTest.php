@@ -30,6 +30,14 @@ class StylesheetTest extends TestCase
         $this->assertStringNotContainsString('box-sizing', $css, 'no preflight');
     }
 
+    public function test_the_utilities_are_scoped_to_the_plugin_markup(): void
+    {
+        $css = (string) file_get_contents(__DIR__.'/../../resources/dist/filament-activity-log-plus.css');
+
+        $this->assertDoesNotMatchRegularExpression('/[{}]\.(flex|grid|w-full|border|text-sm|text-xs|text-gray-500)\{/', $css);
+        $this->assertStringContainsString(':where(.activity-log-plus) .flex', $css);
+    }
+
     public function test_the_panel_links_the_stylesheet_when_the_plugin_is_on(): void
     {
         $this->actingAs($this->admin());

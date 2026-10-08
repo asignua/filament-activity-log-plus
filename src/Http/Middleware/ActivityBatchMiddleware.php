@@ -23,7 +23,7 @@ class ActivityBatchMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $batch = app(ActivityBatch::class);
-        $batch->start();
+        $batch->start(http: true);
 
         try {
             return $next($request);

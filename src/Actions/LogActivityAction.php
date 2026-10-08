@@ -106,6 +106,7 @@ class LogActivityAction extends SpatieLogActivityAction
         $activity->setAttribute('batch_root', $batch->claimRoot(
             $subject,
             in_array($activity->getAttribute('event'), ActivityBatch::LIFECYCLE_EVENTS, true),
+            $activity->getAttribute('log_name') === 'auth',
         ));
     }
 
@@ -136,7 +137,12 @@ class LogActivityAction extends SpatieLogActivityAction
         $activity->setAttribute('subject_label', SubjectLabels::label($subject instanceof Model ? $subject : null));
         $activity->setAttribute('causer_label', SubjectLabels::label($causer instanceof Model ? $causer : null));
 
-        if ($activity->getAttribute('ip') === null && app()->bound('request')) {
+        // artisan and queue workers bind a synthetic request (127.0.0.1): not an address
+        // worth storing. Octane runs in console mode, so a batch opened by the HTTP
+        // middleware / Livewire hook also counts as a request.
+        $http = !app()->runningInConsole() || app(ActivityBatch::class)->isHttp();
+
+        if ($activity->getAttribute('ip') === null && $http && app()->bound('request')) {
             $activity->setAttribute('ip', request()->ip());
         }
     }

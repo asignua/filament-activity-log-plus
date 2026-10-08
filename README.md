@@ -93,7 +93,7 @@ php artisan migrate
 ```
 
 Existing rows keep `batch_root = false`, so the default "Operations only" filter hides them; switch it off in the
-log, or mark them once with `UPDATE activity_log SET batch_root = 1 WHERE batch_uuid IS NULL`.
+log, or mark them once with `UPDATE activity_log SET batch_root = 1 WHERE batch_uuid IS NULL`. A table upgraded from activitylog v4 keeps the v4 `batch_uuid` on old rows, so for it use `UPDATE activity_log SET batch_root = 1` instead (the migration's `down()` also drops that column).
 
 Optionally publish the config:
 
@@ -121,10 +121,10 @@ nobody sees it, because the feed holds every user's actions, IPs and the address
 spatie's defaults**. If your application (or another package) bound its own, it is left alone: extend
 `Asignua\FilamentActivityLogPlus\Models\Activity` and `Asignua\FilamentActivityLogPlus\Actions\LogActivityAction`
 there to keep the batch, the labels and the IP. It also turns `activitylog.enabled` off when the plugin is disabled and
-adds `password` / `remember_token` to `activitylog.default_except_attributes` as a safety net.
+adds `password`, `remember_token` and the MFA secrets (`app_authentication_secret`, `app_authentication_recovery_codes`, `two_factor_*`) to `activitylog.default_except_attributes` as a safety net. The trait also never logs a model's `$hidden` attributes or columns with an encrypted cast (`encrypted`, `encrypted:array`, `AsEncryptedCollection`, `AsEncryptedArrayObject`, also with `::using()`; spatie decrypts them before reading), so MFA secrets and API tokens stay out of the log without extra setup.
 
-**The IP is stored with every entry**, not only with authentication events: any entry written during a request gets
-`request()->ip()` in the `ip` column. It is personal data; cover it in your privacy notice and keep `retention_days`
+**The IP is stored with every entry**, not only with authentication events: any entry written during an HTTP request gets
+`request()->ip()` in the `ip` column (artisan and queue workers get none). It is personal data; cover it in your privacy notice and keep `retention_days`
 sensible. spatie's `default_except_attributes` filters model diffs only, never `withProperties()` of a hand-written
 entry, so do not pass secrets there.
 
