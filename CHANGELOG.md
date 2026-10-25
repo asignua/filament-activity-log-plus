@@ -2,6 +2,11 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
+## v1.1.1 - 2026-10-25
+
+- Screenshots and the cover carry the «made in asign» mark; README shows the Stand With Ukraine badge.
+- Dependency updates (CI actions, dev tooling).
+
 ## v1.1.0 - 2026-10-08
 
 - Dependencies: the dev constraint of `spatie/laravel-permission` now allows `^8.0` (tested on 8.3; the role events are unchanged).
