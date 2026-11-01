@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Workbench\App\Filament\Resources\Articles\Pages;
 
 use Asignua\FilamentActivityLogPlus\Actions\ActivityHistoryAction;
+use Asignua\FilamentActivityLogPlus\Actions\RevertActivityAction;
 use Filament\Resources\Pages\EditRecord;
 use Workbench\App\Filament\Resources\Articles\ArticleResource;
 
@@ -14,6 +15,6 @@ class EditArticle extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [ActivityHistoryAction::make()];
+        return [ActivityHistoryAction::make(), RevertActivityAction::forRecord()];
     }
 }

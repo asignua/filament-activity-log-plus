@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Asignua\FilamentActivityLogPlus;
 
 use Asignua\FilamentActivityLogPlus\Http\Middleware\ActivityBatchMiddleware;
+use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Resources\ActivityLog\ActivityLogResource;
 use BackedEnum;
 use Closure;
@@ -38,7 +39,22 @@ class ActivityLogPlusPlugin implements Plugin
     /** Consulted for the History action when no `authorizeHistory()` closure was given and the gate exists. */
     public const string GATE_HISTORY = 'activity-log-plus.history';
 
+    /**
+     * The ability that lets a user Revert / Restore. Defined by the application; without it
+     * (and without an `authorizeRevert()` closure) nobody may revert. The log entry is passed.
+     */
+    public const string GATE_REVERT = 'revertActivity';
+
     protected bool|Closure|null $authorizeResource = null;
+
+    protected bool|Closure|null $revertable = null;
+
+    protected bool|Closure|null $authorizeRevert = null;
+
+    /** @var list<string> */
+    protected array $revertExcept = [];
+
+    protected ?Closure $revertUsing = null;
 
     protected bool|Closure|null $authorizeHistory = null;
 
@@ -90,6 +106,86 @@ class ActivityLogPlusPlugin implements Plugin
         $this->authorizeHistory = $callback;
 
         return $this;
+    }
+
+    /**
+     * Turn Revert / Restore on (it is OFF by default; the `revert.enabled` config is the
+     * fallback when this is never called). Turning it on does not grant anything by itself:
+     * the user still needs the `revertActivity` gate and the `update` policy of the record.
+     */
+    public function revertable(bool|Closure $condition = true): static
+    {
+        $this->revertable = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Models (class or morph alias) that can never be reverted, besides the
+     * `revert.except_models` config.
+     *
+     * @param list<string> $models
+     */
+    public function revertableExcept(array $models): static
+    {
+        $this->revertExcept = $models;
+
+        return $this;
+    }
+
+    /**
+     * Who may revert. Default: the `revertActivity` gate (deny when it is not defined). The
+     * closure receives the log entry.
+     */
+    public function authorizeRevert(bool|Closure $callback): static
+    {
+        $this->authorizeRevert = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Write the reverted values yourself instead of `forceFill()->save()` (an application
+     * whose writes go through a repository / DTO). The closure receives the record, the
+     * column => value array to write (a translatable column as its WHOLE locale map) and the
+     * source entry. It runs inside the revert's transaction; the revert is still logged.
+     *
+     *     ->revertUsing(fn (Model $record, array $values, Activity $entry) => app(PostRepository::class)->revert($record, $values))
+     */
+    public function revertUsing(?Closure $callback): static
+    {
+        $this->revertUsing = $callback;
+
+        return $this;
+    }
+
+    public function isRevertable(): bool
+    {
+        return $this->revertable !== null
+            ? (bool) value($this->revertable)
+            : (bool) config('activity-log-plus.revert.enabled', false);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getRevertExcept(): array
+    {
+        return $this->revertExcept;
+    }
+
+    public function getRevertUsing(): ?Closure
+    {
+        return $this->revertUsing;
+    }
+
+    public function canRevert(Activity $entry): bool
+    {
+        if ($this->authorizeRevert !== null) {
+            return (bool) value($this->authorizeRevert, $entry);
+        }
+
+        return Gate::has(self::GATE_REVERT) && Gate::allows(self::GATE_REVERT, $entry);
     }
 
     /**

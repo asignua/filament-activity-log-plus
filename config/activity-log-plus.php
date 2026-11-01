@@ -149,6 +149,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Revert / Restore
+    |--------------------------------------------------------------------------
+    |
+    | OFF by default. "Revert this change" writes the old values of one entry back to
+    | the record; "Restore to this version" sets the fields changed after an entry back
+    | to what they were right after it. Every revert is logged as its own `reverted`
+    | entry. Even when on, it needs the `revertActivity` gate ability (default deny) and
+    | the `update` policy of the record. The plugin's `->revertable()` overrides `enabled`.
+    |
+    |  - except_models:     model classes (or morph aliases) that can never be reverted;
+    |  - except_attributes: columns never written back, on top of the primary key, the
+    |                       timestamps, `except` above and `$hidden`.
+    */
+    'revert' => [
+        'enabled' => (bool) env('ACTIVITY_LOG_PLUS_REVERT', false),
+        'except_models' => [],
+        'except_attributes' => ['id', 'uuid', 'ulid', 'created_at', 'updated_at', 'deleted_at'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Schedule
     |--------------------------------------------------------------------------
     |

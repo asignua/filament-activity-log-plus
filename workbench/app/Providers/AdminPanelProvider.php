@@ -16,11 +16,21 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Workbench\App\Filament\Resources\Articles\ArticleResource;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public function boot(): void
+    {
+        // The demo (screenshots) only: the feature is off and the gate is undefined everywhere else.
+        if (config('activity-log-plus.revert.enabled')) {
+            Gate::define('revertActivity', fn (): bool => true);
+            Gate::define('activity-log-plus.view', fn (): bool => true);
+        }
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel

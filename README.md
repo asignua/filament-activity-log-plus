@@ -38,6 +38,7 @@ This plugin fixes each of those in the write layer, and ships the History action
 - [History action](#history-action)
 - [Activity log resource](#activity-log-resource)
 - [Authorization](#authorization)
+- [Revert / Restore](#revert--restore)
 - [Pruning](#pruning)
 - [Configuration](#configuration)
 - [Translations](#translations)
@@ -393,6 +394,60 @@ With neither a closure nor the gate, the **log resource is denied to everyone** 
 everyone** who can open the record. The two are separate on purpose: whoever may edit a record should see who changed it
 before, even without access to the global log.
 
+## Revert / Restore
+
+**Off by default, and gated twice.** It writes to your records, so nothing appears until you opt in:
+
+```php
+ActivityLogPlusPlugin::make()
+    ->revertable()                                  // or ACTIVITY_LOG_PLUS_REVERT=true / revert.enabled
+    ->revertableExcept([Invoice::class])            // models that can never be reverted (also revert.except_models)
+    ->authorizeRevert(fn (Activity $entry): bool => auth()->user()->isAdmin());  // optional closure instead of the gate
+
+Gate::define('revertActivity', fn (User $user, Activity $entry): bool => $user->isAdmin());   // default: deny
+```
+
+Even then the user also needs the **`update` policy of the record** (like Filament, a model without a policy is not
+blocked by one). Authorization is checked again when the action runs, not only when the button is drawn.
+
+- **Revert this change** (row action of the Activity log): writes the `old` values of that entry back.
+- **Restore to this version** (row action, and a header action on a record page): sets every field changed after the
+  entry to its state right after it. On a record page add one line:
+  `RevertActivityAction::forRecord()` (pick an entry, choose "restore" or "revert only this entry").
+
+Both open a confirmation with the exact field-level diff (current value, will become). If a field changed again after the
+entry, it is marked **Changed since** with the value the log expected, and it is **skipped** unless the user switches on
+"Overwrite the fields that changed since".
+
+![Revert confirmation with a conflict](https://raw.githubusercontent.com/asignua/filament-activity-log-plus/v1.2.0/art/revert-conflict.jpg)
+
+What is written, and what never is:
+
+- only attributes: never the primary key, the timestamps, `deleted_at`, `$hidden` / encrypted columns, the `except`
+  list, `revert.except_attributes`, or a model's own `activityRevertExcept()`; a value that was **truncated** in the log
+  (`max_value_length`) is never written;
+- a translatable column is reverted **per locale** (`title.uk`, `title.en`), so a language edited later survives;
+- pivot / taxonomy and media entries are **not revertable** in v1 (the action is hidden for them);
+- a soft-deleted record: its `deleted` entry offers "Revert this change" = restore the record, only when the model uses
+  `SoftDeletes` and `restore` passes the policy. A hard-deleted record offers nothing.
+
+The write is `forceFill()` + `save()` on the record inside a transaction, so model events and observers fire. The
+revert is logged as **one** `reverted` entry (its own diff, `source_id` of the entry it came from, skipped and
+overwritten fields) in one batch; the `updated` entry the same save would write is suppressed so the change is not listed
+twice. A `reverted` entry can itself be reverted.
+
+Applications whose writes go through a repository / DTO (mass assignment off) supply the write themselves; it runs in the
+same transaction and the revert is still logged:
+
+```php
+ActivityLogPlusPlugin::make()->revertable()->revertUsing(
+    fn (Model $record, array $values, Activity $entry) => app(PostRepository::class)->update($record, $values),
+);
+```
+
+`$values` is `column => value`; a translatable column arrives as its whole locale map. Programmatic use:
+`app(ActivityReverter::class)->apply($entry, RevertMode::Revert, overwriteConflicts: false)`.
+
 ## Pruning
 
 ```bash
@@ -411,7 +466,7 @@ config switch (needs the Laravel scheduler):
 
 Every key of `config/activity-log-plus.php` is commented. In short: `enabled`, `table`, `retention_days`,
 `max_value_length`, `history_limit`, `log_auth`, `log_media`, `batches`, `except`, `ignore_only_changed`,
-`field_labels`, `subjects` and `schedule`. The log columns are cast with `Casts\UnescapedJsonCollection`, not the stock
+`revert`, `field_labels`, `subjects` and `schedule`. The log columns are cast with `Casts\UnescapedJsonCollection`, not the stock
 `collection` cast: that one writes `До...` for non-ASCII text, which makes the table, dumps and backup diffs
 unreadable. Reading accepts both formats.
 

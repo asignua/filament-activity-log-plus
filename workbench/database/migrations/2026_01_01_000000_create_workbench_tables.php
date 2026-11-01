@@ -41,6 +41,13 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('soft_articles', function (Blueprint $table): void {
+            $table->id();
+            $table->string('slug')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
         Schema::create('tags', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
@@ -62,7 +69,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (['attachments', 'article_tag', 'tags', 'translatable_articles', 'articles', 'users'] as $table) {
+        foreach (['soft_articles', 'attachments', 'article_tag', 'tags', 'translatable_articles', 'articles', 'users'] as $table) {
             Schema::dropIfExists($table);
         }
     }

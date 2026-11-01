@@ -34,7 +34,8 @@ use Spatie\Activitylog\Support\LogOptions;
  *  - `activityExcept(): list<string>`              its own secrets/tokens;
  *  - `activityTranslatableAttributes(): list<string>`  JSON columns holding `{locale: value}`;
  *    by default `getTranslatableAttributes()` when spatie/laravel-translatable is used, else `[]`;
- *  - `activityIgnoreOnlyChanged(): list<string>`   derived columns.
+ *  - `activityIgnoreOnlyChanged(): list<string>`   derived columns;
+ *  - `activityRevertExcept(): list<string>`        columns that Revert / Restore never write.
  *
  * @mixin Model
  */
@@ -155,6 +156,32 @@ trait LogsActivityPlus
     protected function activityIgnoreOnlyChanged(): array
     {
         return [];
+    }
+
+    /**
+     * Extension point: columns that "Revert" / "Restore" must never write back, besides the
+     * primary key, the timestamps, the logged-out secrets and the `revert.except_attributes`
+     * config.
+     *
+     * @return list<string>
+     */
+    protected function activityRevertExcept(): array
+    {
+        return [];
+    }
+
+    /**
+     * What the revert feature needs to know about this model (public: the reverter lives
+     * outside the model and the hooks above are protected).
+     *
+     * @return array{translatable: list<string>, except: list<string>}
+     */
+    public function activityRevertContext(): array
+    {
+        return [
+            'translatable' => $this->activityTranslatableAttributes(),
+            'except' => [...$this->activityExceptAll(), ...$this->activityRevertExcept()],
+        ];
     }
 
     /**

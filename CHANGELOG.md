@@ -2,6 +2,13 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
+## v1.2.0 - 2026-11-01
+
+- New, **off by default**: Revert / Restore. "Revert this change" writes the old values of an entry back, "Restore to this version" sets a record to its state after an entry (`RevertActivityAction::make()`, `::restoreVersion()` in the log, `::forRecord()` on a record page). Enable with `ActivityLogPlusPlugin::revertable()` or `revert.enabled`; requires the `revertActivity` gate (default deny) and the record's `update` policy, both re-checked on submit.
+- Confirmation shows the field-level diff; fields changed since the entry are flagged and skipped unless the overwrite is confirmed. Translatable columns are reverted per locale; keys, timestamps, secrets, truncated values and `activityRevertExcept()` columns are never written; pivot and media entries are not revertable; soft-deleted records can be restored when the model uses `SoftDeletes`.
+- The write goes through Eloquent in a transaction (or `->revertUsing(fn)` for repository-only apps) and is logged as one `reverted` entry with its source entry, in one batch. New `reverted` event in all 10 languages.
+- `->revertableExcept([...])` / `revert.except_models` opt models out.
+
 ## v1.1.1 - 2026-10-25
 
 - Screenshots and the cover carry the «made in asign» mark; README shows the Stand With Ukraine badge.

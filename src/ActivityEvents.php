@@ -11,7 +11,7 @@ use Closure;
 /**
  * The registry of event names the log knows how to present.
  *
- * Built in: created, updated, deleted, restored, pivot_synced, media_added, media_removed,
+ * Built in: created, updated, deleted, restored, reverted, pivot_synced, media_added, media_removed,
  * login, logout, login_failed, lockout, role_attached, role_detached. An event that is not
  * registered still works: it is shown as its raw name, in grey.
  *
@@ -111,6 +111,7 @@ final class ActivityEvents
             $simple('updated', 'gray'),
             $simple('deleted', 'danger'),
             $simple('restored', 'gray'),
+            $simple('reverted', 'warning'),
             $simple('pivot_synced', 'info', ActivityPresenter::pivotSummary(...)),
             $simple('media_added', 'success', $file),
             $simple('media_removed', 'danger', $file),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Asignua\FilamentActivityLogPlus\Resources\ActivityLog\Tables;
 
+use Asignua\FilamentActivityLogPlus\Actions\RevertActivityAction;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
 use Asignua\FilamentActivityLogPlus\SubjectLabels;
@@ -103,6 +104,8 @@ class ActivityLogTable
             ->recordActions([
                 ActionGroup::make([
                     self::viewBatchAction(),
+                    RevertActivityAction::make(),
+                    RevertActivityAction::restoreVersion(),
                 ]),
             ])
             ->defaultSort('id', 'desc')

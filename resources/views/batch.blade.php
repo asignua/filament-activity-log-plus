@@ -9,6 +9,7 @@
 @php
     use Asignua\FilamentActivityLogPlus\ActivityEvents;
     use Asignua\FilamentActivityLogPlus\SubjectLabels;
+    use Illuminate\Support\Carbon;
     use Asignua\FilamentActivityLogPlus\Support\ActivityDiff;
     use Asignua\FilamentActivityLogPlus\Support\ActivityPresenter;
     use Asignua\FilamentActivityLogPlus\Support\ActivityValue;
@@ -85,6 +86,31 @@
 
             @if ($definition?->view !== null)
                 @include($definition->view, ['entry' => $entry, 'properties' => $properties])
+            @elseif ($entry->event === 'reverted')
+                <div class="space-y-1 border-t border-gray-100 px-3 py-2 text-xs text-gray-500 dark:border-white/5 dark:text-gray-400">
+                    <div>
+                        {{ __($lang . 'source_entry', [
+                            'id' => $properties['source_id'] ?? '?',
+                            'who' => $properties['source_causer'] ?? __($lang . 'system_record'),
+                            'date' => ! empty($properties['source_at']) ? ActivityPresenter::dateTime(Carbon::parse($properties['source_at'])) : '—',
+                        ]) }}
+                    </div>
+                    @if (! empty($properties['record_restored']))
+                        <div>{{ __('filament-activity-log-plus::activity-log-plus.revert.record_restored') }}</div>
+                    @endif
+                    @if (! empty($properties['skipped_conflicts']))
+                        <div>
+                            {{ __('filament-activity-log-plus::activity-log-plus.revert.skipped_conflicts') }}:
+                            {{ collect($properties['skipped_conflicts'])->map(fn ($field) => ActivityPresenter::fieldLabel((string) $field))->implode(', ') }}
+                        </div>
+                    @endif
+                    @if (! empty($properties['overwritten']))
+                        <div>
+                            {{ __('filament-activity-log-plus::activity-log-plus.revert.overwritten') }}:
+                            {{ collect($properties['overwritten'])->map(fn ($field) => ActivityPresenter::fieldLabel((string) $field))->implode(', ') }}
+                        </div>
+                    @endif
+                </div>
             @elseif (ActivityPresenter::isPivotShaped($properties))
                 <div class="space-y-1 px-3 py-2">
                     <div class="font-medium">{{ $properties['label'] ?? $properties['key'] ?? '' }}</div>

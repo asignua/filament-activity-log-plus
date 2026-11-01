@@ -132,6 +132,44 @@ class ActivityRepository
     }
 
     /**
+     * The entries of one record AFTER the given one that carry a field diff, oldest first.
+     * Restoring to a version replays them: the first `old` of a field is its value right
+     * after the chosen entry.
+     *
+     * @param list<string> $events
+     *
+     * @return Collection<int, Activity>
+     */
+    public function changesAfter(string $subjectType, int|string $subjectId, int|string $afterId, array $events): Collection
+    {
+        return $this->query()
+            ->where('subject_type', $subjectType)
+            ->where('subject_id', $subjectId)
+            ->where('id', '>', $afterId)
+            ->whereIn('event', $events)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * The latest entries of a record that can be reverted or restored to, newest first.
+     *
+     * @param list<string> $events
+     *
+     * @return Collection<int, Activity>
+     */
+    public function changeEntries(string $subjectType, int|string $subjectId, array $events, int $limit): Collection
+    {
+        return $this->query()
+            ->where('subject_type', $subjectType)
+            ->where('subject_id', $subjectId)
+            ->whereIn('event', $events)
+            ->latest('id')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
      * Delete the entries older than $cutoff, in chunks: one DELETE over a year of log would
      * hold its locks long enough to slow the panel down.
      */
