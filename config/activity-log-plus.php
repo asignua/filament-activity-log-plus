@@ -158,12 +158,15 @@ return [
     | entry. Even when on, it needs the `revertActivity` gate ability (default deny) and
     | the `update` policy of the record. The plugin's `->revertable()` overrides `enabled`.
     |
+    |  - require_policy:    a record with NO policy is denied (set false, or call
+    |                       `->revertWithoutPolicy()`, to allow it);
     |  - except_models:     model classes (or morph aliases) that can never be reverted;
     |  - except_attributes: columns never written back, on top of the primary key, the
     |                       timestamps, `except` above and `$hidden`.
     */
     'revert' => [
         'enabled' => (bool) env('ACTIVITY_LOG_PLUS_REVERT', false),
+        'require_policy' => true,
         'except_models' => [],
         'except_attributes' => ['id', 'uuid', 'ulid', 'created_at', 'updated_at', 'deleted_at'],
     ],

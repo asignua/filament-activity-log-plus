@@ -89,14 +89,6 @@ abstract class TestCase extends Orchestra
     protected function defineDatabaseMigrations(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../workbench/database/migrations');
-
-        foreach ([
-            __DIR__.'/../database/migrations/create_activity_log_plus_table.php.stub',
-            __DIR__.'/../vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub',
-            __DIR__.'/../vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub',
-        ] as $stub) {
-            (include $stub)->up();
-        }
     }
 
     protected function admin(): User

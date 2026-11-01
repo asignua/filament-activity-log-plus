@@ -70,6 +70,7 @@ return [
         'will_be' => 'Will become',
         'conflict' => 'Changed since',
         'expected' => 'Logged value: :value',
+        'conflicts_changed' => 'The record changed while you were confirming: other fields now conflict. Open the dialog again to review them.',
         'conflicts_note' => 'Some fields were changed again after this entry. They are skipped unless you confirm the overwrite.',
         'skipped' => 'Not reverted',
         'skip_truncated' => 'value was truncated in the log',

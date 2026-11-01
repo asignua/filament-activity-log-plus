@@ -70,6 +70,7 @@ return [
         'will_be' => 'Zmieni się na',
         'conflict' => 'Zmienione później',
         'expected' => 'W dzienniku: :value',
+        'conflicts_changed' => 'Rekord zmienił się podczas potwierdzania: kolejne pola są teraz w konflikcie. Otwórz okno ponownie, aby je sprawdzić.',
         'conflicts_note' => 'Niektóre pola zmieniono ponownie po tym wpisie. Zostaną pominięte, chyba że potwierdzisz nadpisanie.',
         'skipped' => 'Nie cofnięto',
         'skip_truncated' => 'wartość w dzienniku została skrócona',

@@ -70,6 +70,7 @@ return [
         'will_be' => 'Wordt',
         'conflict' => 'Sindsdien gewijzigd',
         'expected' => 'Vastgelegd: :value',
+        'conflicts_changed' => 'Het record is gewijzigd tijdens het bevestigen: andere velden conflicteren nu. Open het dialoogvenster opnieuw om ze te bekijken.',
         'conflicts_note' => 'Sommige velden zijn na dit item opnieuw gewijzigd. Ze worden overgeslagen tenzij u het overschrijven bevestigt.',
         'skipped' => 'Niet teruggedraaid',
         'skip_truncated' => 'waarde in het logboek ingekort',

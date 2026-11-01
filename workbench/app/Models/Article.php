@@ -24,6 +24,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property bool|null $noindex
  * @property string|null $secret
  * @property string|null $path
+ * @property \Illuminate\Support\Carbon|null $published_at
  */
 class Article extends Model implements HasMedia
 {
@@ -35,7 +36,7 @@ class Article extends Model implements HasMedia
 
     protected function casts(): array
     {
-        return ['title' => 'array'];
+        return ['title' => 'array', 'published_at' => 'datetime'];
     }
 
     /**

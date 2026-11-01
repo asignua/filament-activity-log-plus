@@ -20,6 +20,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Activitylog\Facades\Activity as ActivityFacade;
+use Throwable;
 
 /**
  * Writes the values of a log entry back to its record.
@@ -30,7 +31,8 @@ use Spatie\Activitylog\Facades\Activity as ActivityFacade;
  *
  * Safety is layered, and every layer is checked again when the revert is APPLIED (a hidden
  * button is not an authorization): the feature switch (off by default), the
- * `revertActivity` gate (deny by default), the `update` policy of the record, a per-model
+ * `revertActivity` gate (deny by default), the `update` policy of the record (a record with
+ * no policy is denied unless `revertWithoutPolicy()`), a per-model
  * opt-out, the columns that are never written, and conflict detection (a field changed after
  * the entry is shown and skipped unless the user confirms the overwrite).
  *
@@ -44,6 +46,9 @@ final class ActivityReverter
 
     /** Events a record can be restored to (the state right after it). */
     public const array RESTORE_EVENTS = ['created', 'updated', 'reverted'];
+
+    /** @var array<string, Model|null> Subjects looked up by {@see self::allows()}, so a table of 25 rows asks once per record. */
+    private array $subjects = [];
 
     public function __construct(private readonly ActivityRepository $activities) {}
 
@@ -75,7 +80,7 @@ final class ActivityReverter
             return false;
         }
 
-        $subject = $this->subject($entry);
+        $subject = $this->subjects[$entry->subject_type.':'.$entry->subject_id] ??= $this->subject($entry);
 
         if ($subject === null) {
             return false;
@@ -98,9 +103,9 @@ final class ActivityReverter
         }
     }
 
-    public function plan(Activity $entry, RevertMode $mode): RevertPlan
+    public function plan(Activity $entry, RevertMode $mode, bool $lock = false): RevertPlan
     {
-        $subject = $this->subject($entry) ?? throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.record_gone'));
+        $subject = $this->subject($entry, $lock) ?? throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.record_gone'));
 
         if ($entry->event === 'deleted' && $this->isTrashed($subject)) {
             return new RevertPlan($entry, $subject, $mode, [], restoresRecord: true);
@@ -172,7 +177,10 @@ final class ActivityReverter
                 ? $subject->getAttribute($column)
                 : ($this->translations($subject, $column)[$locale] ?? null);
 
-            if ($this->normalize($current) === $this->normalize($target)) {
+            $date = $locale === null && $this->isDateColumn($subject, $column);
+            $same = fn (mixed $a, mixed $b): bool => $date ? $this->instant($a) === $this->instant($b) : $this->normalize($a) === $this->normalize($b);
+
+            if ($same($current, $target)) {
                 continue;
             }
 
@@ -181,7 +189,7 @@ final class ActivityReverter
                 $current,
                 $target,
                 $expected[$field] ?? null,
-                $this->normalize($current) !== $this->normalize($expected[$field] ?? null),
+                !$same($current, $expected[$field] ?? null),
             );
         }
 
@@ -191,49 +199,68 @@ final class ActivityReverter
     }
 
     /**
-     * Apply the revert: authorize, write through Eloquent (or `revertUsing()`) inside a
-     * transaction, log ONE `reverted` entry in the current batch (or a new one).
+     * Apply the revert: authorize, then — inside ONE transaction — reload the record with a
+     * row lock, re-plan against what is really there now, write through Eloquent (or
+     * `revertUsing()`) and log ONE `reverted` entry in the current batch (or a new one).
+     *
+     * @param list<string>|null $seenConflicts The fields the user saw flagged as conflicts in
+     *                                         the confirmation. When the user agreed to overwrite and the
+     *                                         record changed in between, so that OTHER fields now
+     *                                         conflict, the revert aborts instead of overwriting them.
      *
      * @throws AuthorizationException
      * @throws RevertException
      */
-    public function apply(Activity $entry, RevertMode $mode, bool $overwriteConflicts = false): RevertPlan
+    public function apply(Activity $entry, RevertMode $mode, bool $overwriteConflicts = false, ?array $seenConflicts = null): RevertPlan
     {
+        $this->subjects = [];
         $this->authorize($entry, $mode);
 
-        $plan = $this->plan($entry, $mode);
-        $rows = $plan->applicable($overwriteConflicts);
+        $applied = null;
 
-        if ($rows === [] && !$plan->restoresRecord) {
-            throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.nothing'));
-        }
+        $write = function () use ($entry, $mode, $overwriteConflicts, $seenConflicts, &$applied): void {
+            $first = $this->plan($entry, $mode);
 
-        $subject = $plan->subject;
+            $first->subject->getConnection()->transaction(function () use ($entry, $mode, $overwriteConflicts, $seenConflicts, &$applied): void {
+                $plan = $this->plan($entry, $mode, lock: true);
+                $rows = $plan->applicable($overwriteConflicts);
 
-        $write = function () use ($plan, $rows, $subject, $entry, $mode, $overwriteConflicts): void {
-            $subject->getConnection()->transaction(function () use ($plan, $rows, $subject, $entry, $mode, $overwriteConflicts): void {
+                if ($overwriteConflicts && $seenConflicts !== null) {
+                    $unseen = array_diff(array_map(static fn (RevertRow $row): string => $row->field, $plan->conflicts()), $seenConflicts);
+
+                    if ($unseen !== []) {
+                        throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.conflicts_changed'));
+                    }
+                }
+
+                if ($rows === [] && !$plan->restoresRecord) {
+                    throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.nothing'));
+                }
+
                 // The revert is ONE entry of its own: the `updated` entry the model would
                 // write for the same save is suppressed, or the operation would list the
                 // change twice.
-                ActivityFacade::withoutLogging(function () use ($plan, $rows, $subject, $entry): void {
+                ActivityFacade::withoutLogging(function () use ($plan, $rows, $entry): void {
                     if ($plan->restoresRecord) {
                         /** @phpstan-ignore method.notFound */
-                        $subject->restore();
+                        $plan->subject->restore();
 
                         return;
                     }
 
-                    $this->write($subject, $rows, $entry);
+                    $this->write($plan->subject, $rows, $entry);
                 });
 
                 $this->log($plan, $rows, $mode, $overwriteConflicts);
+                $applied = $plan;
             });
         };
 
         $batch = app(ActivityBatch::class);
         $batch->uuid() === null ? $batch->run($write) : $write();
 
-        return $plan;
+        /** @var RevertPlan $applied */
+        return $applied;
     }
 
     /**
@@ -250,7 +277,7 @@ final class ActivityReverter
             [$column, $locale] = $this->split($row->field, $context['translatable']);
 
             if ($locale === null) {
-                $values[$column] = $row->target;
+                $values[$column] = $this->isDateColumn($subject, $column) ? $this->asAppTime($row->target) : $row->target;
 
                 continue;
             }
@@ -275,7 +302,62 @@ final class ActivityReverter
             return;
         }
 
+        // spatie/laravel-translatable MERGES a map given to the attribute (so a removed locale
+        // would survive): such columns are replaced as a whole.
+        foreach ($values as $column => $value) {
+            if (is_array($value) && in_array($column, $context['translatable'], true)
+                && method_exists($subject, 'replaceTranslations') && method_exists($subject, 'isTranslatableAttribute')
+                && $subject->isTranslatableAttribute($column)) {
+                $subject->replaceTranslations($column, $value);
+                unset($values[$column]);
+            }
+        }
+
         $subject->forceFill($values)->save();
+    }
+
+    /**
+     * A logged datetime is UTC ISO text; a datetime cast stores the wall clock of the value it
+     * is given, so the instant is moved to the application timezone first.
+     */
+    private function asAppTime(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        try {
+            return Carbon::parse(is_string($value) || $value instanceof DateTimeInterface ? $value : (string) $value)->setTimezone((string) config('app.timezone'));
+        } catch (Throwable) {
+            return $value;
+        }
+    }
+
+    private function isDateColumn(Model $subject, string $column): bool
+    {
+        $cast = $subject->getCasts()[$column] ?? null;
+
+        if (is_string($cast) && preg_match('/^(date|datetime|immutable_date|immutable_datetime)(:|$)/', $cast) === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * The moment a date value stands for, whatever format the model logged it in.
+     */
+    private function instant(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return $value instanceof DateTimeInterface ? $value->getTimestamp() : Carbon::parse((string) $value)->getTimestamp();
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -352,14 +434,22 @@ final class ActivityReverter
         return is_array($changes['old'] ?? null) && $changes['old'] !== [];
     }
 
-    private function subject(Activity $entry): ?Model
+    private function subject(Activity $entry, bool $lock = false): ?Model
     {
         if ($entry->subject_type === null || $entry->subject_id === null) {
             return null;
         }
 
+        // Always a fresh read (the relation of a loaded entry may be stale); a locked one
+        // inside the revert's transaction.
+        $relation = $entry->subject()->withTrashed();
+
+        if ($lock) {
+            $relation->lockForUpdate();
+        }
+
         /** @var Model|null */
-        return $entry->subject()->withTrashed()->first();
+        return $relation->first();
     }
 
     private function isTrashed(Model $subject): bool
@@ -376,8 +466,10 @@ final class ActivityReverter
     {
         $policy = Gate::getPolicyFor($subject);
 
+        // No policy: an application that authorizes by roles (not policies) must not have
+        // every revertActivity holder write to ANY model, so it is denied unless allowed.
         if ($policy === null) {
-            return true;
+            return ActivityLogPlusPlugin::resolve()->allowsRevertWithoutPolicy();
         }
 
         if ($ability === 'restore' && !method_exists($policy, 'restore')) {

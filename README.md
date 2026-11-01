@@ -407,8 +407,10 @@ ActivityLogPlusPlugin::make()
 Gate::define('revertActivity', fn (User $user, Activity $entry): bool => $user->isAdmin());   // default: deny
 ```
 
-Even then the user also needs the **`update` policy of the record** (like Filament, a model without a policy is not
-blocked by one). Authorization is checked again when the action runs, not only when the button is drawn.
+Even then the user also needs the **`update` policy of the record**. A record with **no policy at all is denied**: an app
+that authorizes by roles rather than policies must not let every `revertActivity` holder write to any model (users,
+settings). Opt in deliberately with `->revertWithoutPolicy()` (or `revert.require_policy` = `false`). Authorization is
+checked again when the action runs, not only when the button is drawn.
 
 - **Revert this change** (row action of the Activity log): writes the `old` values of that entry back.
 - **Restore to this version** (row action, and a header action on a record page): sets every field changed after the
@@ -431,7 +433,11 @@ What is written, and what never is:
 - a soft-deleted record: its `deleted` entry offers "Revert this change" = restore the record, only when the model uses
   `SoftDeletes` and `restore` passes the policy. A hard-deleted record offers nothing.
 
-The write is `forceFill()` + `save()` on the record inside a transaction, so model events and observers fire. The
+The write is `forceFill()` + `save()` on the record inside a transaction (the record is re-read with a row lock and the
+conflicts are re-checked at that moment: if another field started to conflict after the confirmation was drawn, the
+revert aborts rather than overwrite it), so model events and observers fire. Datetimes are converted from the logged UTC
+instant to the application timezone; a spatie/laravel-translatable column is replaced as a whole, so a removed locale
+really goes away. The
 revert is logged as **one** `reverted` entry (its own diff, `source_id` of the entry it came from, skipped and
 overwritten fields) in one batch; the `updated` entry the same save would write is suppressed so the change is not listed
 twice. A `reverted` entry can itself be reverted.
@@ -445,7 +451,9 @@ ActivityLogPlusPlugin::make()->revertable()->revertUsing(
 );
 ```
 
-`$values` is `column => value`; a translatable column arrives as its whole locale map. Programmatic use:
+`$values` is `column => value`; a translatable column arrives as its whole locale map. **An app whose saves have side
+effects outside the model** (a slug that syncs link rows, a materialised path that cascades to children, a search
+index) must use `revertUsing()` and write through its own repository: a plain `save()` only fires model events. Programmatic use:
 `app(ActivityReverter::class)->apply($entry, RevertMode::Revert, overwriteConflicts: false)`.
 
 ## Pruning
@@ -484,6 +492,9 @@ The package ships [Laravel Boost](https://laravel.com/docs/boost) guidelines
 coding agent wires an audit trail up correctly.
 
 ## Testing
+
+The workbench is reproducible: `testbench.yaml` builds the schema (package stubs included) and seeds a demo record; see its
+header for the commands. The log resource is at `/admin/activity-log/activity-logs`.
 
 ```bash
 composer install

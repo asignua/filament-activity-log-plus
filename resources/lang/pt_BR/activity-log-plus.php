@@ -70,6 +70,7 @@ return [
         'will_be' => 'Passará a ser',
         'conflict' => 'Alterado depois',
         'expected' => 'Registrado: :value',
+        'conflicts_changed' => 'O registro mudou durante a confirmação: outros campos agora estão em conflito. Abra o diálogo novamente para revisá-los.',
         'conflicts_note' => 'Alguns campos foram alterados novamente após esta entrada. Eles são ignorados, a menos que você confirme a sobrescrita.',
         'skipped' => 'Não revertido',
         'skip_truncated' => 'valor truncado no registro',

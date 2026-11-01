@@ -8,3 +8,5 @@ parameters:
         - workbench/app
     tmpDir: build/phpstan
     checkOctaneCompatibility: true
+    # testbench.yaml registers the package views for the analysis, so the run-time `view-string` ignores may not match.
+    reportUnmatchedIgnoredErrors: false

@@ -70,6 +70,7 @@ return [
         'will_be' => 'Diventerà',
         'conflict' => 'Modificato dopo',
         'expected' => 'Registrato: :value',
+        'conflicts_changed' => 'Il record è cambiato durante la conferma: altri campi ora sono in conflitto. Riapri la finestra per controllarli.',
         'conflicts_note' => 'Alcuni campi sono stati modificati di nuovo dopo questa voce. Vengono saltati a meno che tu non confermi la sovrascrittura.',
         'skipped' => 'Non ripristinato',
         'skip_truncated' => 'valore troncato nel registro',

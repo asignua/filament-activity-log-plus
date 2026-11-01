@@ -70,6 +70,7 @@ return [
         'will_be' => 'Wird zu',
         'conflict' => 'Seitdem geändert',
         'expected' => 'Protokolliert: :value',
+        'conflicts_changed' => 'Der Datensatz wurde während der Bestätigung geändert: Weitere Felder stehen jetzt in Konflikt. Öffnen Sie den Dialog erneut.',
         'conflicts_note' => 'Einige Felder wurden nach diesem Eintrag erneut geändert. Sie werden übersprungen, sofern Sie das Überschreiben nicht bestätigen.',
         'skipped' => 'Nicht zurückgesetzt',
         'skip_truncated' => 'Wert im Protokoll gekürzt',

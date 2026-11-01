@@ -11,6 +11,7 @@ use Asignua\FilamentActivityLogPlus\Listeners\AuthActivitySubscriber;
 use Asignua\FilamentActivityLogPlus\Listeners\LogPivotSync;
 use Asignua\FilamentActivityLogPlus\Models\Activity;
 use Asignua\FilamentActivityLogPlus\Repositories\ActivityRepository;
+use Asignua\FilamentActivityLogPlus\Revert\ActivityReverter;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Console\Scheduling\Schedule as LaravelSchedule;
@@ -48,6 +49,7 @@ class ActivityLogPlusServiceProvider extends PackageServiceProvider
         $this->app->scoped(ActivityBatch::class);
 
         $this->app->singleton(ActivityRepository::class);
+        $this->app->scoped(ActivityReverter::class);
     }
 
     public function packageBooted(): void

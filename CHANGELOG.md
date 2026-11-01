@@ -8,6 +8,9 @@ All notable changes to `asignua/filament-activity-log-plus` are documented here.
 - Confirmation shows the field-level diff; fields changed since the entry are flagged and skipped unless the overwrite is confirmed. Translatable columns are reverted per locale; keys, timestamps, secrets, truncated values and `activityRevertExcept()` columns are never written; pivot and media entries are not revertable; soft-deleted records can be restored when the model uses `SoftDeletes`.
 - The write goes through Eloquent in a transaction (or `->revertUsing(fn)` for repository-only apps) and is logged as one `reverted` entry with its source entry, in one batch. New `reverted` event in all 10 languages.
 - `->revertableExcept([...])` / `revert.except_models` opt models out.
+- A record with no policy is denied unless `->revertWithoutPolicy()` / `revert.require_policy` = `false`.
+- The revert re-reads the record with a row lock and aborts if new field conflicts appeared since the confirmation; datetimes are written in the application timezone and compared as instants (a model's own `serializeDate()` no longer causes false conflicts); a removed locale on a spatie/laravel-translatable model is really removed; the subject lookup is shared across the rows of a table.
+- Workbench: committed `testbench.yaml`, so the demo builds and seeds reproducibly.
 
 ## v1.1.1 - 2026-10-25
 

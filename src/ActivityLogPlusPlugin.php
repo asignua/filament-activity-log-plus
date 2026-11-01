@@ -56,6 +56,8 @@ class ActivityLogPlusPlugin implements Plugin
 
     protected ?Closure $revertUsing = null;
 
+    protected bool|Closure|null $revertWithoutPolicy = null;
+
     protected bool|Closure|null $authorizeHistory = null;
 
     protected bool|Closure $resource = true;
@@ -157,6 +159,26 @@ class ActivityLogPlusPlugin implements Plugin
         $this->revertUsing = $callback;
 
         return $this;
+    }
+
+    /**
+     * Let a record that has NO policy be reverted by whoever passes the `revertActivity`
+     * gate. Off by default: an app that authorizes by roles rather than policies would
+     * otherwise let that gate write to any model (users, settings). Config fallback:
+     * `revert.require_policy` = false.
+     */
+    public function revertWithoutPolicy(bool|Closure $condition = true): static
+    {
+        $this->revertWithoutPolicy = $condition;
+
+        return $this;
+    }
+
+    public function allowsRevertWithoutPolicy(): bool
+    {
+        return $this->revertWithoutPolicy !== null
+            ? (bool) value($this->revertWithoutPolicy)
+            : !(bool) config('activity-log-plus.revert.require_policy', true);
     }
 
     public function isRevertable(): bool

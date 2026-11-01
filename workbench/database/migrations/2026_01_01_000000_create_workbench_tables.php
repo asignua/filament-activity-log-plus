@@ -10,14 +10,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table): void {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+        // testbench ships its own `users` migration (the workbench build runs it first).
+        if (!Schema::hasTable('users')) {
+            Schema::create('users', function (Blueprint $table): void {
+                $table->id();
+                $table->string('name');
+                $table->string('email')->unique();
+                $table->string('password');
+                $table->rememberToken();
+                $table->timestamps();
+            });
+        }
 
         // `order` and `noindex` have DATABASE DEFAULTS, which is what makes the phantom
         // changes of `logOnlyDirty` possible.
@@ -30,6 +33,7 @@ return new class extends Migration
             $table->boolean('noindex')->default(false);
             $table->string('secret')->nullable();
             $table->string('path')->nullable();
+            $table->dateTime('published_at')->nullable();
             $table->timestamps();
         });
 

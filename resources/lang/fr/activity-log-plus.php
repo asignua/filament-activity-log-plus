@@ -70,6 +70,7 @@ return [
         'will_be' => 'Deviendra',
         'conflict' => 'Modifié depuis',
         'expected' => 'Journalisé : :value',
+        'conflicts_changed' => 'L\'enregistrement a changé pendant la confirmation : d\'autres champs sont maintenant en conflit. Rouvrez la fenêtre pour les vérifier.',
         'conflicts_note' => 'Certains champs ont été modifiés à nouveau après cette entrée. Ils sont ignorés sauf si vous confirmez l\'écrasement.',
         'skipped' => 'Non annulé',
         'skip_truncated' => 'valeur tronquée dans le journal',

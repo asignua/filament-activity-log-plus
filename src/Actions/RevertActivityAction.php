@@ -12,11 +12,13 @@ use Asignua\FilamentActivityLogPlus\Revert\RevertMode;
 use Asignua\FilamentActivityLogPlus\Revert\RevertPlan;
 use Asignua\FilamentActivityLogPlus\Support\ActivityPresenter;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -90,6 +92,7 @@ class RevertActivityAction
                     ->label(__(self::LANG.'entry'))
                     ->required()
                     ->live()
+                    ->afterStateUpdated(fn (Get $get, Set $set, Model $record) => $set('seen', self::seen($resolve($get, $record), RevertMode::tryFrom((string) $get('mode')) ?? RevertMode::Restore)))
                     ->options(fn (Model $record): array => $reverter()->entriesFor($record, (int) config('activity-log-plus.history_limit', 50))
                         ->mapWithKeys(fn (Activity $entry): array => [$entry->getKey() => self::entryLabel($entry)])
                         ->all()),
@@ -101,7 +104,9 @@ class RevertActivityAction
                     ])
                     ->default(RevertMode::Restore->value)
                     ->live()
+                    ->afterStateUpdated(fn (Get $get, Set $set, Model $record) => $set('seen', self::seen($resolve($get, $record), RevertMode::tryFrom((string) $get('mode')) ?? RevertMode::Restore)))
                     ->required(),
+                Hidden::make('seen')->default([]),
                 // @phpstan-ignore argument.type (the view namespace is registered at run time)
                 View::make('filament-activity-log-plus::revert-preview')
                     ->viewData(function (Get $get, Model $record) use ($resolve): array {
@@ -118,7 +123,7 @@ class RevertActivityAction
                 $entry = app(ActivityReverter::class)->entriesFor($record, (int) config('activity-log-plus.history_limit', 50))
                     ->firstWhere('id', (int) ($data['entry'] ?? 0));
 
-                self::run($entry, RevertMode::tryFrom((string) ($data['mode'] ?? '')) ?? RevertMode::Restore, (bool) ($data['overwrite'] ?? false));
+                self::run($entry, RevertMode::tryFrom((string) ($data['mode'] ?? '')) ?? RevertMode::Restore, (bool) ($data['overwrite'] ?? false), (array) ($data['seen'] ?? []));
             });
     }
 
@@ -136,9 +141,10 @@ class RevertActivityAction
                 // @phpstan-ignore argument.type (the view namespace is registered at run time)
                 View::make('filament-activity-log-plus::revert-preview')
                     ->viewData(fn (Activity $record): array => self::previewData($record, $mode)),
+                Hidden::make('seen')->default(fn (Activity $record): array => self::seen($record, $mode)),
                 self::overwriteToggle()->visible(fn (Activity $record): bool => self::safePlan($record, $mode)?->hasConflicts() ?? false),
             ])
-            ->action(fn (array $data, Activity $record) => self::run($record, $mode, (bool) ($data['overwrite'] ?? false)));
+            ->action(fn (array $data, Activity $record) => self::run($record, $mode, (bool) ($data['overwrite'] ?? false), (array) ($data['seen'] ?? [])));
     }
 
     private static function overwriteToggle(): Toggle
@@ -149,14 +155,28 @@ class RevertActivityAction
             ->default(false);
     }
 
-    private static function run(?Activity $entry, RevertMode $mode, bool $overwrite): void
+    /**
+     * The conflicts the user is shown in the confirmation: the revert refuses to overwrite
+     * any OTHER field that started to conflict after that.
+     *
+     * @return list<string>
+     */
+    private static function seen(?Activity $entry, RevertMode $mode): array
+    {
+        return array_map(static fn ($row): string => $row->field, self::safePlan($entry, $mode)?->conflicts() ?? []);
+    }
+
+    /**
+     * @param array<array-key, mixed> $seen
+     */
+    private static function run(?Activity $entry, RevertMode $mode, bool $overwrite, array $seen = []): void
     {
         try {
             if ($entry === null) {
                 throw new RevertException(__(self::LANG.'nothing'));
             }
 
-            $plan = app(ActivityReverter::class)->apply($entry, $mode, $overwrite);
+            $plan = app(ActivityReverter::class)->apply($entry, $mode, $overwrite, array_values(array_map('strval', $seen)));
         } catch (AuthorizationException) {
             Notification::make()->danger()->title(__(self::LANG.'forbidden'))->send();
 

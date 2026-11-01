@@ -70,6 +70,7 @@ return [
         'will_be' => 'Olacak',
         'conflict' => 'Sonradan değişti',
         'expected' => 'Günlükte: :value',
+        'conflicts_changed' => 'Onaylarken kayıt değişti: başka alanlar da artık çakışıyor. İncelemek için pencereyi yeniden açın.',
         'conflicts_note' => 'Bazı alanlar bu girdiden sonra yeniden değiştirildi. Üzerine yazmayı onaylamadıkça atlanırlar.',
         'skipped' => 'Geri alınmadı',
         'skip_truncated' => 'değer günlükte kısaltıldı',

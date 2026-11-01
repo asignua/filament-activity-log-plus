@@ -15,11 +15,14 @@ use Asignua\FilamentActivityLogPlus\Revert\RevertPlan;
 use Asignua\FilamentActivityLogPlus\Tests\TestCase;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use RuntimeException;
 use Workbench\App\Filament\Resources\Articles\Pages\EditArticle;
 use Workbench\App\Models\Article;
+use Workbench\App\Models\LegacyDateArticle;
 use Workbench\App\Models\SoftArticle;
 use Workbench\App\Models\Tag;
 use Workbench\App\Models\TranslatableArticle;
@@ -31,7 +34,7 @@ class RevertTest extends TestCase
         parent::setUp();
 
         $this->actingAs($this->admin());
-        config(['activity-log-plus.cache.enabled' => false, 'cache.default' => 'array']);
+        config(['activity-log-plus.cache.enabled' => false, 'cache.default' => 'array', 'activity-log-plus.revert.require_policy' => false]);
     }
 
     private function enable(): void
@@ -493,9 +496,151 @@ class RevertTest extends TestCase
         $this->assertStringContainsString('#'.$this->last($article, 'updated')->getKey(), $html);
     }
 
+    public function test_a_datetime_is_reverted_to_the_same_instant_in_a_non_utc_app_timezone(): void
+    {
+        $this->enable();
+        $previous = date_default_timezone_get();
+        config(['app.timezone' => 'Europe/Kyiv']);
+        date_default_timezone_set('Europe/Kyiv');
+
+        try {
+            $article = $this->article();
+            $article->published_at = Carbon::parse('2026-06-01 12:00:00', 'Europe/Kyiv');
+            $article->save();
+            $article->published_at = Carbon::parse('2026-06-02 15:30:00', 'Europe/Kyiv');
+            $article->save();
+            $entry = $this->last($article, 'updated');
+
+            $this->reverter()->apply($entry, RevertMode::Revert);
+
+            $this->assertSame('2026-06-01 12:00:00', $article->fresh()->getRawOriginal('published_at'));
+        } finally {
+            date_default_timezone_set($previous);
+        }
+    }
+
+    public function test_a_model_with_its_own_serialize_date_gets_no_false_date_conflicts(): void
+    {
+        $this->enable();
+        $article = new LegacyDateArticle;
+        $article->slug = 'legacy';
+        $article->published_at = Carbon::parse('2026-06-01 12:00:00');
+        $article->save();
+        $article->published_at = Carbon::parse('2026-06-02 15:30:00');
+        $article->save();
+        $entry = $this->last($article, 'updated');
+
+        $plan = $this->reverter()->plan($entry, RevertMode::Revert);
+
+        $this->assertSame(['published_at'], array_map(fn ($row) => $row->field, $plan->rows));
+        $this->assertFalse($plan->hasConflicts());
+
+        $this->reverter()->apply($entry, RevertMode::Revert);
+        $this->assertSame('2026-06-01 12:00:00', $article->fresh()->getRawOriginal('published_at'));
+    }
+
+    public function test_a_locale_added_later_is_really_removed_on_a_spatie_translatable_model(): void
+    {
+        $this->enable();
+        $article = new TranslatableArticle;
+        $article->setTranslations('title', ['uk' => 'Один', 'en' => 'One']);
+        $article->save();
+        $article->setTranslation('title', 'pl', 'Jeden');
+        $article->save();
+        $entry = $this->last($article, 'updated');
+        $this->assertArrayHasKey('title.pl', $entry->attribute_changes['old']);
+
+        $this->reverter()->apply($entry, RevertMode::Revert);
+
+        $this->assertSame(['uk' => 'Один', 'en' => 'One'], $article->fresh()->getTranslations('title'));
+    }
+
+    public function test_new_conflicts_since_the_preview_abort_an_overwrite(): void
+    {
+        $this->enable();
+        $article = $this->article();
+        $article->slug = 'second';
+        $article->body = 'one';
+        $article->save();
+        $entry = $this->last($article, 'updated');
+
+        $seen = array_map(fn ($row) => $row->field, $this->reverter()->plan($entry, RevertMode::Revert)->conflicts());
+        $this->assertSame([], $seen);
+
+        $article->body = 'edited meanwhile';
+        $article->save();
+
+        try {
+            $this->reverter()->apply($entry, RevertMode::Revert, overwriteConflicts: true, seenConflicts: $seen);
+            $this->fail('expected the revert to abort');
+        } catch (RevertException $exception) {
+            $this->assertSame(__('filament-activity-log-plus::activity-log-plus.revert.conflicts_changed'), $exception->getMessage());
+        }
+
+        $this->assertSame('edited meanwhile', $article->fresh()->body);
+        $this->assertSame('second', $article->fresh()->slug);
+        $this->assertSame(0, Activity::query()->where('event', 'reverted')->count());
+    }
+
+    public function test_a_record_without_a_policy_is_denied_unless_allowed(): void
+    {
+        $this->enable();
+        config(['activity-log-plus.revert.require_policy' => true]);
+        $entry = $this->last($this->edited(), 'updated');
+
+        $this->assertFalse($this->reverter()->allows($entry, RevertMode::Revert));
+
+        ActivityLogPlusPlugin::get()->revertWithoutPolicy();
+        $this->assertTrue($this->reverter()->allows($entry, RevertMode::Revert));
+    }
+
+    public function test_a_record_with_a_policy_does_not_need_the_without_policy_switch(): void
+    {
+        $this->enable();
+        config(['activity-log-plus.revert.require_policy' => true]);
+        Gate::policy(Article::class, AllowUpdatePolicy::class);
+        $entry = $this->last($this->edited(), 'updated');
+
+        $this->assertTrue($this->reverter()->allows($entry, RevertMode::Revert));
+    }
+
+    public function test_a_page_of_rows_costs_one_subject_query_per_record(): void
+    {
+        $this->enable();
+        $article = $this->edited();
+
+        foreach (['third', 'fourth', 'fifth'] as $slug) {
+            $article->slug = $slug;
+            $article->save();
+        }
+        $entries = Activity::query()->where('event', 'updated')->get();
+        $this->assertGreaterThanOrEqual(4, $entries->count());
+
+        $reverter = $this->reverter();
+        DB::enableQueryLog();
+
+        foreach ($entries as $entry) {
+            $reverter->allows($entry, RevertMode::Revert);
+            $reverter->allows($entry, RevertMode::Restore);
+        }
+
+        $articleQueries = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'from "articles"'))->count();
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $articleQueries);
+    }
+
     public function test_the_action_class_is_exposed(): void
     {
         $this->assertSame('restore_version', RevertActivityAction::forRecord()->getName());
+    }
+}
+
+class AllowUpdatePolicy
+{
+    public function update(): bool
+    {
+        return true;
     }
 }
 
