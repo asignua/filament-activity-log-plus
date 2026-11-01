@@ -441,6 +441,15 @@ The suite runs on [Orchestra Testbench](https://packages.tools/testbench) with a
 translatable JSON fields **without** spatie/laravel-translatable, one **with** it, a `BelongsToMany` pivot, media and
 roles.
 
+## More plugins by asign
+
+- [Duplicates](https://filamentphp.com/plugins/asign-duplicates) — find and merge duplicate records
+- [Record Lock](https://filamentphp.com/plugins/asign-record-lock) — stop two people editing the same record
+- [Mail Log](https://filamentphp.com/plugins/asign-mail-log) — journal of outgoing mail
+- [Themes](https://filamentphp.com/plugins/asign-themes) — per-user and per-panel colour themes
+
+All plugins: <https://filamentphp.com/plugins?q=asign>
+
 ## License
 
 The MIT License (MIT). See [LICENSE.md](LICENSE.md).
