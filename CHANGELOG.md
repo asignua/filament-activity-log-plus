@@ -10,6 +10,7 @@ All notable changes to `asignua/filament-activity-log-plus` are documented here.
 - `->revertableExcept([...])` / `revert.except_models` opt models out.
 - A record with no policy is denied unless `->revertWithoutPolicy()` / `revert.require_policy` = `false`.
 - The revert re-reads the record with a row lock and aborts if new field conflicts appeared since the confirmation; datetimes are written in the application timezone and compared as instants (a model's own `serializeDate()` no longer causes false conflicts); a removed locale on a spatie/laravel-translatable model is really removed; the subject lookup is shared across the rows of a table.
+- The confirmation carries what it showed for each conflict (field and current value); an overwrite aborts if a conflicting field holds another value by then. A malformed `seen` payload is ignored. The subject memo is cleared after an apply.
 - Workbench: committed `testbench.yaml`, so the demo builds and seeds reproducibly.
 
 ## v1.1.1 - 2026-10-25

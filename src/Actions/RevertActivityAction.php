@@ -123,7 +123,7 @@ class RevertActivityAction
                 $entry = app(ActivityReverter::class)->entriesFor($record, (int) config('activity-log-plus.history_limit', 50))
                     ->firstWhere('id', (int) ($data['entry'] ?? 0));
 
-                self::run($entry, RevertMode::tryFrom((string) ($data['mode'] ?? '')) ?? RevertMode::Restore, (bool) ($data['overwrite'] ?? false), (array) ($data['seen'] ?? []));
+                self::run($entry, RevertMode::tryFrom((string) ($data['mode'] ?? '')) ?? RevertMode::Restore, (bool) ($data['overwrite'] ?? false), self::cleanSeen($data['seen'] ?? null));
             });
     }
 
@@ -144,7 +144,7 @@ class RevertActivityAction
                 Hidden::make('seen')->default(fn (Activity $record): array => self::seen($record, $mode)),
                 self::overwriteToggle()->visible(fn (Activity $record): bool => self::safePlan($record, $mode)?->hasConflicts() ?? false),
             ])
-            ->action(fn (array $data, Activity $record) => self::run($record, $mode, (bool) ($data['overwrite'] ?? false), (array) ($data['seen'] ?? [])));
+            ->action(fn (array $data, Activity $record) => self::run($record, $mode, (bool) ($data['overwrite'] ?? false), self::cleanSeen($data['seen'] ?? null)));
     }
 
     private static function overwriteToggle(): Toggle
@@ -159,15 +159,33 @@ class RevertActivityAction
      * The conflicts the user is shown in the confirmation: the revert refuses to overwrite
      * any OTHER field that started to conflict after that.
      *
-     * @return list<string>
+     * @return array<string, string|null> field => the current value shown
      */
     private static function seen(?Activity $entry, RevertMode $mode): array
     {
-        return array_map(static fn ($row): string => $row->field, self::safePlan($entry, $mode)?->conflicts() ?? []);
+        return self::safePlan($entry, $mode)?->seenState() ?? [];
     }
 
     /**
-     * @param array<array-key, mixed> $seen
+     * The submitted `seen` is user input: keep only `field => scalar|null` pairs.
+     *
+     * @return array<string, string|null>
+     */
+    private static function cleanSeen(mixed $seen): array
+    {
+        $clean = [];
+
+        foreach (is_array($seen) ? $seen : [] as $field => $value) {
+            if (is_string($field) && (is_scalar($value) || $value === null)) {
+                $clean[$field] = $value === null ? null : (string) $value;
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @param array<string, string|null> $seen
      */
     private static function run(?Activity $entry, RevertMode $mode, bool $overwrite, array $seen = []): void
     {
@@ -176,7 +194,7 @@ class RevertActivityAction
                 throw new RevertException(__(self::LANG.'nothing'));
             }
 
-            $plan = app(ActivityReverter::class)->apply($entry, $mode, $overwrite, array_values(array_map('strval', $seen)));
+            $plan = app(ActivityReverter::class)->apply($entry, $mode, $overwrite, $seen);
         } catch (AuthorizationException) {
             Notification::make()->danger()->title(__(self::LANG.'forbidden'))->send();
 

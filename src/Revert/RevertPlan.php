@@ -58,6 +58,23 @@ final readonly class RevertPlan
             : array_values(array_filter($this->rows, static fn (RevertRow $row): bool => !$row->conflict));
     }
 
+    /**
+     * What the confirmation showed for each conflict: field => comparable current value.
+     * Sent back with the submit, so an overwrite only covers the values the user saw.
+     *
+     * @return array<string, string|null>
+     */
+    public function seenState(): array
+    {
+        $state = [];
+
+        foreach ($this->conflicts() as $row) {
+            $state[$row->field] = $row->currentKey;
+        }
+
+        return $state;
+    }
+
     public function isEmpty(): bool
     {
         return $this->rows === [] && !$this->restoresRecord;

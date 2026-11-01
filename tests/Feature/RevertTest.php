@@ -564,7 +564,7 @@ class RevertTest extends TestCase
         $article->save();
         $entry = $this->last($article, 'updated');
 
-        $seen = array_map(fn ($row) => $row->field, $this->reverter()->plan($entry, RevertMode::Revert)->conflicts());
+        $seen = $this->reverter()->plan($entry, RevertMode::Revert)->seenState();
         $this->assertSame([], $seen);
 
         $article->body = 'edited meanwhile';
@@ -628,6 +628,66 @@ class RevertTest extends TestCase
         DB::disableQueryLog();
 
         $this->assertSame(1, $articleQueries);
+    }
+
+    public function test_a_conflict_that_changed_again_after_the_preview_aborts_the_overwrite(): void
+    {
+        $this->enable();
+        $article = $this->article();
+        $article->slug = 'second';
+        $article->body = 'one';
+        $article->save();
+        $entry = $this->last($article, 'updated');
+        $article->body = 'two';
+        $article->save();
+
+        $seen = $this->reverter()->plan($entry, RevertMode::Revert)->seenState();
+        $this->assertSame(['body' => 'two'], $seen);
+
+        $article->body = 'three';   // a third party, after the user saw "two"
+        $article->save();
+
+        try {
+            $this->reverter()->apply($entry, RevertMode::Revert, overwriteConflicts: true, seenConflicts: $seen);
+            $this->fail('expected the revert to abort');
+        } catch (RevertException) {
+        }
+
+        $this->assertSame('three', $article->fresh()->body);
+
+        // The same value the user saw is fine.
+        $article->body = 'two';
+        $article->save();
+        $this->reverter()->apply($entry, RevertMode::Revert, overwriteConflicts: true, seenConflicts: $seen);
+        $this->assertNull($article->fresh()->body);
+    }
+
+    public function test_a_malformed_seen_payload_is_cleaned_not_a_server_error(): void
+    {
+        $clean = new \ReflectionMethod(RevertActivityAction::class, 'cleanSeen');
+
+        $this->assertSame(
+            ['title.en' => 'x', 'slug' => null, 'n' => '3'],
+            $clean->invoke(null, [['x'], 'a' => ['y'], 'title.en' => 'x', 'slug' => null, 'n' => 3, 'o' => new \stdClass]),
+        );
+        $this->assertSame([], $clean->invoke(null, 'not an array'));
+    }
+
+    public function test_the_subject_memo_is_cleared_after_an_apply(): void
+    {
+        $this->enable();
+        $article = $this->edited();
+        $entry = $this->last($article, 'updated');
+        $reverter = $this->reverter();
+        $reverter->allows($entry, RevertMode::Revert);
+        $reverter->apply($entry, RevertMode::Revert);
+
+        DB::enableQueryLog();
+        $reverter->allows($entry, RevertMode::Revert);
+        $queries = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'from "articles"'))->count();
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $queries, 'the record is looked up again after the revert');
     }
 
     public function test_the_action_class_is_exposed(): void

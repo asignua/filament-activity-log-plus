@@ -16,5 +16,6 @@ final readonly class RevertRow
         public mixed $target,
         public mixed $expected,
         public bool $conflict,
+        public ?string $currentKey = null,
     ) {}
 }

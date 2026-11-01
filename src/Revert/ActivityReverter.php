@@ -190,6 +190,7 @@ final class ActivityReverter
                 $target,
                 $expected[$field] ?? null,
                 !$same($current, $expected[$field] ?? null),
+                $date ? (($instant = $this->instant($current)) === null ? null : (string) $instant) : $this->normalize($current),
             );
         }
 
@@ -203,10 +204,12 @@ final class ActivityReverter
      * row lock, re-plan against what is really there now, write through Eloquent (or
      * `revertUsing()`) and log ONE `reverted` entry in the current batch (or a new one).
      *
-     * @param list<string>|null $seenConflicts The fields the user saw flagged as conflicts in
-     *                                         the confirmation. When the user agreed to overwrite and the
-     *                                         record changed in between, so that OTHER fields now
-     *                                         conflict, the revert aborts instead of overwriting them.
+     * @param array<string, string|null>|null $seenConflicts What the confirmation showed: each
+     *                                                       conflicting field with its current value
+     *                                                       ({@see RevertPlan::seenState()}). When the user agreed to
+     *                                                       overwrite and a conflicting field is new, or holds another
+     *                                                       value than the one shown, the revert aborts instead of
+     *                                                       overwriting what the user never saw.
      *
      * @throws AuthorizationException
      * @throws RevertException
@@ -226,7 +229,10 @@ final class ActivityReverter
                 $rows = $plan->applicable($overwriteConflicts);
 
                 if ($overwriteConflicts && $seenConflicts !== null) {
-                    $unseen = array_diff(array_map(static fn (RevertRow $row): string => $row->field, $plan->conflicts()), $seenConflicts);
+                    $unseen = array_filter(
+                        $plan->conflicts(),
+                        static fn (RevertRow $row): bool => !array_key_exists($row->field, $seenConflicts) || $seenConflicts[$row->field] !== $row->currentKey,
+                    );
 
                     if ($unseen !== []) {
                         throw new RevertException(__('filament-activity-log-plus::activity-log-plus.revert.conflicts_changed'));
@@ -257,7 +263,13 @@ final class ActivityReverter
         };
 
         $batch = app(ActivityBatch::class);
-        $batch->uuid() === null ? $batch->run($write) : $write();
+
+        try {
+            $batch->uuid() === null ? $batch->run($write) : $write();
+        } finally {
+            // The records changed: a table drawn again in this request must look them up again.
+            $this->subjects = [];
+        }
 
         /** @var RevertPlan $applied */
         return $applied;

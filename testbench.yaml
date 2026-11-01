@@ -1,4 +1,4 @@
-# Try it by hand (Docker): bash scripts/plugin-php.sh filament-activity-log-plus bash
+# `workbench:build` migrates and seeds the demo record (the `seeders` key). Try it by hand (Docker): bash scripts/plugin-php.sh filament-activity-log-plus bash
 #   vendor/bin/testbench workbench:build
 #   vendor/bin/testbench filament:assets
 #   ACTIVITY_LOG_PLUS_REVERT=true vendor/bin/testbench serve --host=0.0.0.0 --port=8000
@@ -53,7 +53,6 @@ workbench:
     - create-sqlite-db
     - db-wipe
     - migrate-fresh
-    - db-seed
   assets:
     - laravel-assets
   sync: []

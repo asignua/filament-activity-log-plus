@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Workbench\App\Filament\Resources\Articles\ArticleResource;
+use Workbench\App\Models\Article;
+use Workbench\App\Policies\RevertDemoArticlePolicy;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -28,6 +30,8 @@ class AdminPanelProvider extends PanelProvider
         if (config('activity-log-plus.revert.enabled')) {
             Gate::define('revertActivity', fn (): bool => true);
             Gate::define('activity-log-plus.view', fn (): bool => true);
+            // A record needs a policy to be reverted (the default); this is the recommended setup.
+            Gate::policy(Article::class, RevertDemoArticlePolicy::class);
         }
     }
 

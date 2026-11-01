@@ -1,20 +1,34 @@
 {
     "base": "http://host.docker.internal:8761",
-    "login": {"path": "/admin/login", "email": "emma@example.com", "password": "password"},
+    "login": {
+        "path": "/admin/login",
+        "email": "emma@example.com",
+        "password": "password"
+    },
     "shots": [
-        {"path": "/admin/articles/1/edit", "out": "revert-conflict.jpg", "actions": [
-            {"click": "text=Restore to this version"}, {"wait": 800},
-            {"eval": "(()=>{const s=document.querySelector('select.fi-select-input'); s.selectedIndex=3; s.dispatchEvent(new Event('change',{bubbles:true}))})()"},
-            {"wait": 1200},
-            {"click": "text=Revert only this entry"}, {"wait": 1500}
-        ]},
-        {"path": "/admin/articles/1/edit", "out": "revert-history.jpg", "actions": [
-            {"click": "text=Restore to this version"}, {"wait": 800},
-            {"eval": "(()=>{const s=document.querySelector('select.fi-select-input'); s.selectedIndex=3; s.dispatchEvent(new Event('change',{bubbles:true}))})()"},
-            {"wait": 1200},
-            {"click": "text=Revert only this entry"}, {"wait": 1200},
-            {"click": "button:has-text('Apply')"}, {"wait": 2500},
-            {"click": "text=History"}, {"wait": 1500}
-        ]}
+        {
+            "path": "/admin/articles/1/edit",
+            "out": "revert-conflict.jpg",
+            "actions": [
+                {
+                    "click": "text=Restore to this version"
+                },
+                {
+                    "wait": 800
+                },
+                {
+                    "eval": "(()=>{const s=document.querySelector('select.fi-select-input'); s.selectedIndex=3; s.dispatchEvent(new Event('change',{bubbles:true}))})()"
+                },
+                {
+                    "wait": 1200
+                },
+                {
+                    "click": "text=Revert only this entry"
+                },
+                {
+                    "wait": 1500
+                }
+            ]
+        }
     ]
 }
