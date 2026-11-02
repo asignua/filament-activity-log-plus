@@ -3,7 +3,8 @@
     action, the latest entries of one record). This is where "related things" come together:
     the save of a record, its pivot changes and the files of the same form submit.
 
-    $activities: iterable of Activity.
+    $activities: iterable of Activity. Empty (a record nobody has changed yet, or one imported
+    without events) shows the `ui.history_empty` line instead of a blank modal.
     $limited: optional; the cap when the operation has more entries than shown.
 --}}
 @php
@@ -23,7 +24,7 @@
         <p class="text-gray-500 dark:text-gray-400">{{ __($lang . 'batch_limited', ['count' => $limited]) }}</p>
     @endif
 
-    @foreach ($activities as $entry)
+    @forelse ($activities as $entry)
         @php
             $changes = $entry->attribute_changes?->toArray() ?? [];
             $attributes = is_array($changes['attributes'] ?? null) ? $changes['attributes'] : [];
@@ -137,6 +138,8 @@
                 </dl>
             @endif
         </div>
-    @endforeach
+    @empty
+        <p class="text-gray-500 dark:text-gray-400">{{ __($lang . 'history_empty') }}</p>
+    @endforelse
 </div>
 </div>

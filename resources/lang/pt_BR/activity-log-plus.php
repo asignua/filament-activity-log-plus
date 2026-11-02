@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Histórico',
         'close' => 'Fechar',
+        'history_empty' => 'Nenhuma alteração ainda.',
         'activity_log' => 'Registro de atividades',
         'activity_record' => 'Entrada do registro',
         'date' => 'Data',

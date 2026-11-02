@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Geschiedenis',
         'close' => 'Sluiten',
+        'history_empty' => 'Nog geen wijzigingen.',
         'activity_log' => 'Activiteitenlogboek',
         'activity_record' => 'Logboekregel',
         'date' => 'Datum',

@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Historia',
         'close' => 'Zamknij',
+        'history_empty' => 'Brak zmian.',
         'activity_log' => 'Dziennik aktywności',
         'activity_record' => 'Wpis dziennika',
         'date' => 'Data',

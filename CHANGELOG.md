@@ -2,6 +2,10 @@
 
 All notable changes to `asignua/filament-activity-log-plus` are documented here.
 
+## v1.2.1 - 2026-11-02
+
+- History modal of a record with no entries (never changed, or imported without events) says "No changes yet." instead of opening blank. New `ui.history_empty` key in all 10 languages.
+
 ## v1.2.0 - 2026-11-01
 
 - New, **off by default**: Revert / Restore. "Revert this change" writes the old values of an entry back, "Restore to this version" sets a record to its state after an entry (`RevertActivityAction::make()`, `::restoreVersion()` in the log, `::forRecord()` on a record page). Enable with `ActivityLogPlusPlugin::revertable()` or `revert.enabled`; requires the `revertActivity` gate (default deny) and the record's `update` policy, both re-checked on submit.

@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Verlauf',
         'close' => 'Schließen',
+        'history_empty' => 'Noch keine Änderungen.',
         'activity_log' => 'Aktivitätsprotokoll',
         'activity_record' => 'Protokolleintrag',
         'date' => 'Datum',

@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Geçmiş',
         'close' => 'Kapat',
+        'history_empty' => 'Henüz değişiklik yok.',
         'activity_log' => 'Etkinlik günlüğü',
         'activity_record' => 'Günlük kaydı',
         'date' => 'Tarih',

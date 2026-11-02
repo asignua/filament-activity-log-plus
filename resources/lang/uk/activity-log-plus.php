@@ -22,6 +22,7 @@ return [
     'ui' => [
         'history' => 'Історія',
         'close' => 'Закрити',
+        'history_empty' => 'Змін ще не було.',
         'activity_log' => 'Журнал дій',
         'activity_record' => 'Запис журналу',
         'date' => 'Дата',

@@ -381,6 +381,22 @@ class ActivityLogResourceTest extends TestCase
         $this->assertStringContainsString('after-edit', (string) $html);
     }
 
+    public function test_the_history_of_a_record_without_entries_says_so(): void
+    {
+        $article = activity()->withoutLogging(fn (): Article => $this->article());
+        $empty = __('filament-activity-log-plus::activity-log-plus.ui.history_empty');
+
+        $html = (string) ActivityHistoryAction::make()->record($article)->getModalContent()?->render();
+        $this->assertStringContainsString(e($empty), $html);
+
+        $article->slug = 'now-edited';
+        $article->save();
+
+        $html = (string) ActivityHistoryAction::make()->record($article)->getModalContent()?->render();
+        $this->assertStringContainsString('now-edited', $html);
+        $this->assertStringNotContainsString(e($empty), $html);
+    }
+
     public function test_the_history_cards_show_the_author_or_the_system_placeholder(): void
     {
         $article = $this->article();
