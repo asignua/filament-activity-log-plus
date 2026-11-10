@@ -95,7 +95,7 @@ class ActivityLogTable
                         : $query),
 
                 Filter::make('period')
-                    ->schema([
+                    ->form([
                         DatePicker::make('from')->label(__(self::LANG.'from')),
                         DatePicker::make('until')->label(__(self::LANG.'until')),
                     ])
