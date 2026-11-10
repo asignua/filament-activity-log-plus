@@ -5,6 +5,7 @@ All notable changes to `asignua/filament-activity-log-plus` are documented here.
 ## v1.3.0 - 2026-11-10
 
 - Requires Filament ^5.11.2; replaced deprecated Filament API calls: `Filter::schema()` -> `form()` (1).
+- Laravel 13 deprecations: the workbench panel uses `PreventRequestForgery` (with a `VerifyCsrfToken` fallback for Laravel 12). Laravel 12 is still supported.
 
 ## v1.2.1 - 2026-11-02
 
